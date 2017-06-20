@@ -1,0 +1,23 @@
+{
+  "name": "colour-bot",
+  "version": "1.0.0",
+  "description": "A colour role manager for discord guilds",
+  "main": "dist/index.js",
+  "author": "Navrin Thomas",
+  "license": "MIT",
+  "scripts": {
+    "start": "ts-node ./src/index.ts",
+    "build": "tsc -p ."
+  },
+  "dependencies": {
+    "@types/common-tags": "^1.2.5",
+    "@types/js-yaml": "^3.5.30",
+    "@types/node": "^7.0.29",
+    "discord.js": "^11.1.0",
+    "discordjs-commands": "Navrin/discordjs-commands",
+    "js-yaml": "^3.8.4",
+    "simple-discordjs": "^0.1.3",
+    "ts-node": "^3.0.4",
+    "typescript": "^2.3.4"
+  }
+}
