@@ -1,7 +1,7 @@
 import * as Discord from 'discord.js';
 import { CommandFunction, CommandDefinition, RoleTypes, MiddlewareFunction } from 'simple-discordjs';
 import { Guild } from './database/guild/model';
-import { Connection, getConnectionManager} from "typeorm";
+import { Connection, getConnectionManager} from 'typeorm';
 import { createGuildIfNone } from './database/guild/actions';
 
 export default
@@ -29,7 +29,11 @@ class ChannelLocker {
     }    
 
     lock: MiddlewareFunction = async (message, options) => {
-        if (options.custom && !options.custom.locked) {
+        if ('custom' in options && !options.custom.locked) {
+            return true;
+        }
+
+        if (!('custom' in options)) {
             return true;
         }
 

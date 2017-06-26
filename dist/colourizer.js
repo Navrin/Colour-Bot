@@ -10,7 +10,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 const actions_1 = require("./database/colour/actions");
 const typeorm_1 = require("typeorm");
-const discordjs_commands_1 = require("discordjs-commands");
+const simple_discordjs_1 = require("simple-discordjs");
 const model_1 = require("./database/guild/model");
 const model_2 = require("./database/colour/model");
 const actions_2 = require("./database/guild/actions");
@@ -31,7 +31,7 @@ class Colourizer {
     constructor() {
         this.getSetCommand = () => {
             return {
-                authentication: discordjs_commands_1.RoleTypes.ADMIN,
+                authentication: simple_discordjs_1.RoleTypes.ADMIN,
                 command: {
                     action: this.setColour,
                     names: ['setcolor', 'setcolour'],
@@ -48,12 +48,33 @@ class Colourizer {
                 command: {
                     action: this.getColour,
                     names: ['colour', 'addcolour', 'getcolour', 'color', 'addcolor', 'getcolor', ''],
-                    noPrefix: true,
                     parameters: '{{colour}}'
+                },
+                custom: {
+                    locked: true,
                 },
                 description: {
                     message: 'Set a colour role to yourself',
                     example: '{{{prefix}}}getcolour green'
+                }
+            };
+        };
+        this.getDirtyColourCommand = () => {
+            return {
+                command: {
+                    action: (message, options, params, client) => __awaiter(this, void 0, void 0, function* () {
+                        const res = /[a-zA-Z\s]+/.exec(message.content);
+                        if (res) {
+                            yield this.getColour(message, options, Object.assign({}, params, { named: Object.assign({}, params.named, { colour: res[0] }) }), client, true);
+                        }
+                        return false;
+                    }),
+                    names: ['colourdirty'],
+                    noPrefix: true,
+                    pattern: /[a-zA-Z\s]+/,
+                },
+                custom: {
+                    locked: true,
                 }
             };
         };
@@ -66,6 +87,9 @@ class Colourizer {
                 description: {
                     message: 'Lists all all the avaliable colours in a yaml format.',
                     example: '{{{prefix}}}colours'
+                },
+                custom: {
+                    locked: true,
                 }
             };
         };
@@ -75,7 +99,7 @@ class Colourizer {
                     action: this.generateStandardColours,
                     names: ['generate', 'generate_colours'],
                 },
-                authentication: discordjs_commands_1.RoleTypes.ADMIN,
+                authentication: simple_discordjs_1.RoleTypes.ADMIN,
                 description: {
                     message: 'Generates a set of starter colours. (ADMIN ONLY)',
                     example: '{{{prefix}}}generate',
@@ -104,16 +128,18 @@ class Colourizer {
                 return false;
             }
         });
-        this.getColour = (message, options, parameters) => __awaiter(this, void 0, void 0, function* () {
+        this.getColour = (message, options, parameters, client, silent = false) => __awaiter(this, void 0, void 0, function* () {
             const colourRepo = yield this.connection.getRepository(model_2.Colour);
             const userRepo = yield this.connection.getRepository(model_3.User);
             const colour = yield colourRepo.createQueryBuilder('colour')
                 .innerJoin('colour.guild.id', 'guild')
                 .where('colour.guild = :guildId', { guildId: parseInt(message.guild.id, 10) })
-                .andWhere('colour.name LIKE :colourName', { colourName: `%${parameters.named.colour}%` })
+                .andWhere('colour.name LIKE :colourName', { colourName: `%${parameters.named.colour}` })
                 .getOne();
             if (colour == null) {
-                message.channel.send(`Colour was not found. Check your spelling of the colour, else ask an admin to add the colour.`);
+                if (!silent) {
+                    message.channel.send(`Colour was not found. Check your spelling of the colour, else ask an admin to add the colour.`);
+                }
                 return false;
             }
             const userEntitiy = (yield userRepo.findOneById(parseInt(message.author.id, 10)))

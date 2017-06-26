@@ -14,9 +14,8 @@
     "@types/js-yaml": "^3.5.30",
     "@types/node": "^7.0.29",
     "discord.js": "^11.1.0",
-    "discordjs-commands": "Navrin/discordjs-commands",
     "js-yaml": "^3.8.4",
-    "simple-discordjs": "^0.1.3",
+    "simple-discordjs": "^0.2.4",
     "ts-node": "^3.0.4",
     "typescript": "^2.3.4"
   }

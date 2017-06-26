@@ -22,6 +22,10 @@ __decorate([
     typeorm_1.OneToMany(type => model_1.Colour, colour => colour.guild),
     __metadata("design:type", Array)
 ], Guild.prototype, "colours", void 0);
+__decorate([
+    typeorm_1.Column('string', { nullable: true }),
+    __metadata("design:type", String)
+], Guild.prototype, "channel", void 0);
 Guild = __decorate([
     typeorm_1.Entity()
 ], Guild);

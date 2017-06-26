@@ -1,6 +1,6 @@
 import { createNewColour } from './database/colour/actions';
 import { getConnectionManager, Connection } from 'typeorm';
-import { CommandFunction, CommandDefinition, RoleTypes } from 'discordjs-commands';
+import { CommandFunction, CommandDefinition, RoleTypes } from 'simple-discordjs';
 import { Guild } from './database/guild/model';
 import { Colour } from './database/colour/model';
 import { createGuildIfNone } from './database/guild/actions';

@@ -8,16 +8,5 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const typeorm_1 = require("typeorm");
-const model_1 = require("./model");
-exports.createGuildIfNone = (message) => __awaiter(this, void 0, void 0, function* () {
-    const guildRepo = yield typeorm_1.getConnectionManager()
-        .get()
-        .getRepository(model_1.Guild);
-    const guild = new model_1.Guild();
-    guild.id = parseInt(message.guild.id, 10);
-    guild.colours = [];
-    const guilder = yield guildRepo.persist(guild);
-    message.channel.send(`${message.guild.name} has been added to the database`);
-    return yield guild;
+const dispatch = (options, ...params) => __awaiter(this, void 0, void 0, function* () {
 });

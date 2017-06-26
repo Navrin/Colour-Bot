@@ -31,6 +31,7 @@ const setColourToUser = (newColour, connection, user, message) => __awaiter(this
     try {
         const userRepo = yield connection.getRepository(model_1.User);
         const colourRepo = yield connection.getRepository(model_2.Colour);
+        const colourList = yield colourRepo.find();
         if (user.colour != undefined) {
             const oldColour = message.guild.roles.get(user.colour.roleID);
             if (oldColour == undefined) {
@@ -39,6 +40,11 @@ const setColourToUser = (newColour, connection, user, message) => __awaiter(this
             }
             yield message.guild.member(message.author).removeRole(oldColour);
         }
+        const userMember = message.guild.member(message.author.id);
+        const possibleColours = colourList
+            .map((colour) => userMember.roles.find('name', colour.name))
+            .filter(id => id);
+        yield userMember.removeRoles(possibleColours);
         const updatedUser = yield userRepo.persist(user);
         user.colour = newColour;
         yield colourRepo.persist(newColour);
