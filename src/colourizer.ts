@@ -9,6 +9,7 @@ import { createUserIfNone, setColourToUser } from './database/user/actions';
 import * as yaml from 'js-yaml';
 import * as Discord from 'discord.js';
 import { stripIndents, oneLineTrim } from "common-tags";
+import { dispatch } from './dispatch';
 
 interface ColourList {
     [key: string]: number;
@@ -128,7 +129,7 @@ export default class Colourizer {
     private listColours: CommandFunction = async (message) => {
         try {
             const colourRepo = await this.connection.getRepository(Colour);
-            const msg = await message.channel.send(`Searching colours...`)
+            const msg = await await dispatch(message, `Searching colours...`)
             const results = await colourRepo
                 .createQueryBuilder('colour')
                 .innerJoin('colour.guild', 'guild')
@@ -142,7 +143,7 @@ export default class Colourizer {
             }));
 
             const searchMsg = (Array.isArray(msg)) ? msg[0] : msg;
-            searchMsg.edit(yamler);
+            await dispatch(searchMsg, yamler, undefined, { edit: true, delay: 10000 });
             return true;
         } catch (e) {
             return false;
@@ -161,7 +162,7 @@ export default class Colourizer {
 
         if (colour == null) {
             if (!silent) {
-                message.channel.send(`Colour was not found. Check your spelling of the colour, else ask an admin to add the colour.`);
+                await dispatch(message, `Colour was not found. Check your spelling of the colour, else ask an admin to add the colour.`);
             }
             return false;
         }
@@ -186,9 +187,9 @@ export default class Colourizer {
         const colourRepo = await this.connection.getRepository(Colour);
 
 
-        const roleID = this.findRole(message, parameters.named.role);
+        const roleID = await this.findRole(message, parameters.named.role);
         if (!roleID) {
-            message.channel.send(`No usable roles could be found! Mention a role or redefine your search parameters.`);
+            await dispatch(message, `No usable roles could be found! Mention a role or redefine your search parameters.`);
             return false;
         }
 
@@ -219,12 +220,12 @@ export default class Colourizer {
         if (colour == undefined) {
             const newColour = await createNewColour(message, colourName, roleID);
             if (!newColour) {
-                message.channel.send(`Colour wasn't created. Aborting function...`);
+                await dispatch(message, `Colour wasn't created. Aborting function...`);
                 return false;
             }
 
             if (!silent) {
-                message.channel.send('Colour has successfully been added to the list!');
+                await dispatch(message, 'Colour has successfully been added to the list!');
             }
             return true;
         }
@@ -237,17 +238,17 @@ export default class Colourizer {
             await guildRepo.persist(guild);
 
             if (!silent) {
-                message.channel.send(`Colour role has successfully been updated!`);
+                await dispatch(message, `Colour role has successfully been updated!`);
             }
 
             return true;
         } catch (e) {
-            message.channel.send(`Error when updating colour: ${e.toString()}`);
+            await dispatch(message, `Error when updating colour: ${e.toString()}`);
             return false;
         }
     }
 
-    private findRole(message: Discord.Message, role: string): string | false {
+    private async findRole(message: Discord.Message, role: string): Promise<string | false> {
         const roleKey = message.mentions.roles.firstKey();
 
         if (roleKey) {
@@ -259,7 +260,7 @@ export default class Colourizer {
         );
 
         if (search.size > 1) {
-            message.channel.send(
+            await dispatch(message, 
                 stripIndents`Multiple results found for the search ${role}!
             Expected one role, found: 
 
@@ -290,14 +291,22 @@ export default class Colourizer {
                 || await createGuildIfNone(message);
 
             if (!guild) {
-                message.channel.send('Error when setting roles, guild not part of the current database.');
-                break;
+                await dispatch(message, 'Error when setting roles, guild not part of the current database.');
+                return false;
             }
 
             this.setColourEntity(`colour-${colourName}`, guild, role.id, message, true);
         }
 
-        message.channel.send('Colours have been added (or regenerated)!');
+        await dispatch(message, 'Colours have been added (or regenerated)!');
         return true;
+    }
+
+    private quickCreateColour: CommandFunction = async (message) => {
+        const colour = /(?:#)?[0-9a-f]{6}/gmi.exec(message.content);
+        if (!colour) {
+            await dispatch(message, 'No colour was specified');
+        }
+        return false;
     }
 }

@@ -3,6 +3,7 @@ import { CommandFunction, CommandDefinition, RoleTypes, MiddlewareFunction } fro
 import { Guild } from './database/guild/model';
 import { Connection, getConnectionManager} from 'typeorm';
 import { createGuildIfNone } from './database/guild/actions';
+import { dispatch } from './dispatch';
 
 export default
 class ChannelLocker {
@@ -42,7 +43,7 @@ class ChannelLocker {
             || await createGuildIfNone(message);
 
         if (!guild) {
-            message.channel.send('Error when finding guild.');
+            dispatch(message, 'Error when finding guild.');
             return false;
         }
 
@@ -59,7 +60,7 @@ class ChannelLocker {
             || await createGuildIfNone(message);
 
         if (!guild) {
-            message.channel.send('Error when getting guild, please contact your bot maintainer');
+            dispatch(message, 'Error when getting guild, please contact your bot maintainer');
             return false;
         }
 
@@ -70,7 +71,7 @@ class ChannelLocker {
         } else {
             const channel = message.guild.channels.find('name', parameters.named.channel);
             if (!channel) {
-                message.channel.send('No channel found with the name' + parameters.named.channel);
+                dispatch(message, 'No channel found with the name' + parameters.named.channel);
                 return false;
             }
 
@@ -78,7 +79,7 @@ class ChannelLocker {
         }
 
         await guildRepo.persist(guild);        
-        message.channel.send('Channel has sucessfully been set.');
+        dispatch(message, 'Channel has sucessfully been set.');
         return true;
     }
 }

@@ -12,6 +12,7 @@ const simple_discordjs_1 = require("simple-discordjs");
 const model_1 = require("./database/guild/model");
 const typeorm_1 = require("typeorm");
 const actions_1 = require("./database/guild/actions");
+const dispatch_1 = require("./dispatch");
 class ChannelLocker {
     constructor() {
         this.getSetChannelLock = () => {
@@ -39,7 +40,7 @@ class ChannelLocker {
             const guild = (yield guildRepo.findOneById(parseInt(message.guild.id, 10)))
                 || (yield actions_1.createGuildIfNone(message));
             if (!guild) {
-                message.channel.send('Error when finding guild.');
+                dispatch_1.dispatch(message, 'Error when finding guild.');
                 return false;
             }
             if (guild.channel === message.channel.id) {
@@ -52,7 +53,7 @@ class ChannelLocker {
             const guild = (yield guildRepo.findOneById(parseInt(message.guild.id)))
                 || (yield actions_1.createGuildIfNone(message));
             if (!guild) {
-                message.channel.send('Error when getting guild, please contact your bot maintainer');
+                dispatch_1.dispatch(message, 'Error when getting guild, please contact your bot maintainer');
                 return false;
             }
             if (message.mentions.channels.first()) {
@@ -62,13 +63,13 @@ class ChannelLocker {
             else {
                 const channel = message.guild.channels.find('name', parameters.named.channel);
                 if (!channel) {
-                    message.channel.send('No channel found with the name' + parameters.named.channel);
+                    dispatch_1.dispatch(message, 'No channel found with the name' + parameters.named.channel);
                     return false;
                 }
                 guild.channel = channel.id;
             }
             yield guildRepo.persist(guild);
-            message.channel.send('Channel has sucessfully been set.');
+            dispatch_1.dispatch(message, 'Channel has sucessfully been set.');
             return true;
         });
         this.connection = typeorm_1.getConnectionManager().get();
