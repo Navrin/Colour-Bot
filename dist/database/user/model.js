@@ -9,20 +9,25 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+const model_1 = require("./../guild/model");
 const typeorm_1 = require("typeorm");
-const model_1 = require("../colour/model");
+const model_2 = require("../colour/model");
 require("reflect-metadata");
 let User = class User {
 };
 __decorate([
     typeorm_1.PrimaryColumn(),
-    __metadata("design:type", Number)
+    __metadata("design:type", String)
 ], User.prototype, "id", void 0);
 __decorate([
-    typeorm_1.OneToOne(type => model_1.Colour),
+    typeorm_1.OneToOne(type => model_2.Colour),
     typeorm_1.JoinColumn(),
-    __metadata("design:type", model_1.Colour)
+    __metadata("design:type", model_2.Colour)
 ], User.prototype, "colour", void 0);
+__decorate([
+    typeorm_1.ManyToOne(type => model_1.Guild),
+    __metadata("design:type", model_1.Guild)
+], User.prototype, "guild", void 0);
 User = __decorate([
     typeorm_1.Entity()
 ], User);

@@ -19,7 +19,7 @@ exports.createNewColour = (message, name, roleID) => __awaiter(this, void 0, voi
         .get()
         .getRepository(model_2.Guild);
     const colour = new model_1.Colour();
-    const guild = yield guildRepo.findOneById(parseInt(message.guild.id, 10));
+    const guild = yield guildRepo.findOneById(message.guild.id);
     if (!guild) {
         message.channel.send(`Guild does not exist.`);
         return false;

@@ -5,7 +5,7 @@ import { Guild } from './database/guild/model';
 import { Colour } from './database/colour/model';
 import { createGuildIfNone } from './database/guild/actions';
 import { User } from './database/user/model';
-import { createUserIfNone, setColourToUser } from './database/user/actions';
+import { createUserIfNone, setColourToUser, findUser } from './database/user/actions';
 import * as yaml from 'js-yaml';
 import * as Discord from 'discord.js';
 import { stripIndents, oneLineTrim } from "common-tags";
@@ -72,17 +72,13 @@ export default class Colourizer {
                 action: async (message, options, params, client) => {
                     const res = /[a-zA-Z\s]+/.exec(message.content);
                     if (res) {
-                        await this.getColour(
-                            message, 
-                            options, 
-                            {
+                        await this.getColour(message, options, {
                                 ...params,
                                 named: {
                                     ...params.named,
                                     colour: res[0],
                                 }
-                            }, 
-                            client, true)
+                            },  client, true)
                     }
                     return false;
                 },
@@ -92,6 +88,21 @@ export default class Colourizer {
             },
             custom: {
                 locked: true,
+            }
+        }
+    }
+
+    public getQuickColourCommand: () => CommandDefinition = () => {
+        return {
+            command: {
+                action: this.quickCreateColour,
+                names: ['quickcolour', 'makecolour', 'quickcolor', 'makecolor'],
+                parameters: '{{colourName}} {{colourCode}}'
+            },
+            authentication: RoleTypes.ADMIN,
+            description: {
+                message: 'Generate a new colour quickly with a hex code',
+                example: '{{{prefix}}}quickcolour red FF0000',
             }
         }
     }
@@ -133,7 +144,7 @@ export default class Colourizer {
             const results = await colourRepo
                 .createQueryBuilder('colour')
                 .innerJoin('colour.guild', 'guild')
-                .where('colour.guild = :guildID', { guildID: parseInt(message.guild.id, 10) })
+                .where('colour.guild = :guildID', { guildID: message.guild.id })
                 .getMany();
 
             const yamler = yaml.dump(results.map((colourItem) => {
@@ -143,7 +154,7 @@ export default class Colourizer {
             }));
 
             const searchMsg = (Array.isArray(msg)) ? msg[0] : msg;
-            await dispatch(searchMsg, yamler, undefined, { edit: true, delay: 10000 });
+            await dispatch(searchMsg, yamler, undefined, { edit: true, delete: false });
             return true;
         } catch (e) {
             return false;
@@ -153,12 +164,20 @@ export default class Colourizer {
     private getColour: CommandFunction = async (message, options, parameters: { array: string[], named: { colour: string } }, client, silent: boolean = false) => {
         const colourRepo = await this.connection.getRepository(Colour);
         const userRepo = await this.connection.getRepository(User);
+        const guildRepo = await this.connection.getRepository(Guild);
+        
         const colour = await colourRepo.createQueryBuilder('colour')
             .innerJoin('colour.guild.id', 'guild')
-            .where('colour.guild = :guildId', { guildId: parseInt(message.guild.id, 10) })
+            .where('colour.guild = :guildId', { guildId: message.guild.id })
             .andWhere('colour.name LIKE :colourName', { colourName: `%${parameters.named.colour}` })
             .getOne();
 
+        const guild = await guildRepo.findOneById(message.guild.id);
+
+        if (guild == null) {
+            await dispatch(message, 'Guild Error.');
+            return false;
+        }
 
         if (colour == null) {
             if (!silent) {
@@ -167,19 +186,22 @@ export default class Colourizer {
             return false;
         }
 
-        const userEntitiy = await userRepo.findOneById(parseInt(message.author.id, 10))
-            || await createUserIfNone(message.author, this.connection, colour);
+        const userEntitiy = await findUser(message.author.id, guild, this.connection)
+            || await createUserIfNone(message.author, guild, this.connection, colour);
 
-        const userList = await userRepo.find({
-            alias: 'user',
-            innerJoinAndSelect: {
-                'colour': 'user.colour'
-            }
-        });
+        const user = await userRepo
+            .createQueryBuilder('user')
+            .innerJoin('user.guild', 'guild', 'user.guild = guild.id')
+            .innerJoin('user.colour', 'colour', 'user.colour = colour.id')
+            .where('user.id = :userid', { userid: userEntitiy.id })
+            .getOne();
+        
+        if (user == null) {
+            message.channel.send('User is not in schema: ', user);
+            return false;
+        }
 
-        const user = userList[0];
-
-        return await setColourToUser(colour, this.connection, user, message);
+        return await setColourToUser(colour, this.connection, user, guild, message);
     }
 
     private setColour: CommandFunction = async (message, options, parameters: { array: string[], named: { colour: string, role: string } }) => {
@@ -193,7 +215,7 @@ export default class Colourizer {
             return false;
         }
 
-        const guild = await guildRepo.findOneById(parseInt(message.guild.id, 10))
+        const guild = await guildRepo.findOneById(message.guild.id)
 
         if (guild === undefined) {
             const newGuild = await createGuildIfNone(message);
@@ -268,7 +290,7 @@ export default class Colourizer {
                     search
                         .map(roleOjb => `Rolename: ${roleOjb.name.replace('@', '')}`)
                         .join('\n')
-                    }`);
+                    }`, undefined, { delete: false });
             return false;
         }
 
@@ -279,7 +301,7 @@ export default class Colourizer {
 
         for (const [colourName, colourCode] of Object.entries(standardColours)) {
             const discordGuild = message.guild;
-            const oldRole = await discordGuild.roles.find("name", `colour-${colourName}`);
+            const oldRole = await discordGuild.roles.find('name', `colour-${colourName}`);
             const role = (oldRole) ? oldRole : await discordGuild.createRole({ name: `colour-${colourName}`, color: colourCode });
 
             if (!role) {
@@ -287,7 +309,7 @@ export default class Colourizer {
             }
             const guildRepo = await this.connection.getRepository(Guild);
 
-            const guild = await guildRepo.findOneById(parseInt(discordGuild.id, 10))
+            const guild = await guildRepo.findOneById(discordGuild.id)
                 || await createGuildIfNone(message);
 
             if (!guild) {
@@ -302,11 +324,33 @@ export default class Colourizer {
         return true;
     }
 
-    private quickCreateColour: CommandFunction = async (message) => {
-        const colour = /(?:#)?[0-9a-f]{6}/gmi.exec(message.content);
+    private quickCreateColour: CommandFunction = async (message, options, params: {
+        array: string[],
+        named: {
+            colourName: string,
+            colourCode: string,
+        }
+    }) => {
+        const colour = /(?:#)?[0-9a-f]{6}/gmi.exec(params.named.colourCode);
+        const guildRepo = await this.connection.getRepository(Guild);
+        const guild = await guildRepo.findOneById(message.guild.id)
+            || await createGuildIfNone(message);
+        
         if (!colour) {
             await dispatch(message, 'No colour was specified');
+            return false;
         }
-        return false;
+
+        const colourCode = colour[0];
+
+        const colourEntity = await 
+           message.guild.createRole({
+               name: params.named.colourName,
+               color: parseInt(colourCode, 16),
+           });
+
+        this.setColourEntity(params.named.colourName, guild, colourEntity.id, message);
+
+        return true;
     }
 }

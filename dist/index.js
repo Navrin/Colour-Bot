@@ -16,7 +16,10 @@ client.login(settings.token || process.env.COLOUR_BOT_TOKEN);
 client.on('ready', () => {
     console.log('I\'m alive!');
 });
-new simple_discordjs_1.default('ctest.', client)
+process.on('unhandledRejection', (e) => {
+    console.error(e);
+});
+new simple_discordjs_1.default('c.', client)
     .use(auth.authenticate)
     .use(locker.lock)
     .defineCommand(utils_1.getInviteLinkDescriber())
@@ -27,5 +30,6 @@ new simple_discordjs_1.default('ctest.', client)
     .defineCommand(colourizer.getColourCommand())
     .defineCommand(colourizer.getListCommand())
     .defineCommand(colourizer.getGenerateColours())
+    .defineCommand(colourizer.getQuickColourCommand())
     .generateHelp()
     .listen();

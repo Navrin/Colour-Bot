@@ -6,10 +6,16 @@ import 'reflect-metadata';
 @Entity()
 export class Guild {
     @PrimaryColumn()
-    id: number;
+    id: string;
 
-    @OneToMany(type => Colour, colour => colour.guild)
+    @OneToMany(type => Colour, colour => colour.guild, {
+        cascadeInsert: true,
+        cascadeUpdate: true,
+    })
     colours: Colour[];
+
+    @OneToMany(type => User, user => user.guild)
+    users: User[];
 
     @Column('string', { nullable: true })
     channel?: string;

@@ -19,8 +19,10 @@ client.login(settings.token || process.env.COLOUR_BOT_TOKEN)
 client.on('ready', () => {
     console.log('I\'m alive!');
 });
-
-new Commands('ctest.', client)
+process.on('unhandledRejection', (e: any) => {
+    console.error(e);
+})
+new Commands('c.', client)
     .use(auth.authenticate)
     .use(locker.lock)
     .defineCommand(getInviteLinkDescriber())
@@ -31,6 +33,7 @@ new Commands('ctest.', client)
     .defineCommand(colourizer.getColourCommand())
     .defineCommand(colourizer.getListCommand())
     .defineCommand(colourizer.getGenerateColours())
+    .defineCommand(colourizer.getQuickColourCommand())
     .generateHelp()
     .listen();
 

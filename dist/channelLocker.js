@@ -37,7 +37,7 @@ class ChannelLocker {
                 return true;
             }
             const guildRepo = this.connection.getRepository(model_1.Guild);
-            const guild = (yield guildRepo.findOneById(parseInt(message.guild.id, 10)))
+            const guild = (yield guildRepo.findOneById(message.guild.id))
                 || (yield actions_1.createGuildIfNone(message));
             if (!guild) {
                 dispatch_1.dispatch(message, 'Error when finding guild.');
@@ -50,7 +50,7 @@ class ChannelLocker {
         });
         this.setChannel = (message, option, parameters, client) => __awaiter(this, void 0, void 0, function* () {
             const guildRepo = yield this.connection.getRepository(model_1.Guild);
-            const guild = (yield guildRepo.findOneById(parseInt(message.guild.id)))
+            const guild = (yield guildRepo.findOneById(message.guild.id))
                 || (yield actions_1.createGuildIfNone(message));
             if (!guild) {
                 dispatch_1.dispatch(message, 'Error when getting guild, please contact your bot maintainer');

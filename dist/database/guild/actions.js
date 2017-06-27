@@ -15,7 +15,7 @@ exports.createGuildIfNone = (message) => __awaiter(this, void 0, void 0, functio
         .get()
         .getRepository(model_1.Guild);
     const guild = new model_1.Guild();
-    guild.id = parseInt(message.guild.id, 10);
+    guild.id = message.guild.id;
     guild.colours = [];
     const guilder = yield guildRepo.persist(guild);
     message.channel.send(`${message.guild.name} has been added to the database`);

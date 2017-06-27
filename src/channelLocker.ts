@@ -39,7 +39,7 @@ class ChannelLocker {
         }
 
         const guildRepo = this.connection.getRepository(Guild);        
-        const guild = await guildRepo.findOneById(parseInt(message.guild.id, 10))
+        const guild = await guildRepo.findOneById(message.guild.id)
             || await createGuildIfNone(message);
 
         if (!guild) {
@@ -56,7 +56,7 @@ class ChannelLocker {
 
     private setChannel: CommandFunction = async (message, option, parameters: { array: string[], named: { channel: string} }, client) => {
         const guildRepo = await this.connection.getRepository(Guild);
-        const guild = await guildRepo.findOneById(parseInt(message.guild.id))
+        const guild = await guildRepo.findOneById(message.guild.id)
             || await createGuildIfNone(message);
 
         if (!guild) {

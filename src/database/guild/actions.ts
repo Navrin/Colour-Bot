@@ -9,7 +9,7 @@ export const createGuildIfNone = async (message: Discord.Message) => {
 
     const guild = new Guild();
 
-    guild.id = parseInt(message.guild.id, 10);
+    guild.id = message.guild.id;
     guild.colours = [];
 
     const guilder = await guildRepo.persist(guild);

@@ -13,7 +13,7 @@ export const createNewColour = async (message: Discord.Message, name: string, ro
         .getRepository(Guild);
 
     const colour = new Colour();
-    const guild = await guildRepo.findOneById(parseInt(message.guild.id, 10)); 
+    const guild = await guildRepo.findOneById(message.guild.id); 
     if (!guild) {
         message.channel.send(`Guild does not exist.`)
         return false;

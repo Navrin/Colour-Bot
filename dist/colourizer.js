@@ -79,6 +79,20 @@ class Colourizer {
                 }
             };
         };
+        this.getQuickColourCommand = () => {
+            return {
+                command: {
+                    action: this.quickCreateColour,
+                    names: ['quickcolour', 'makecolour', 'quickcolor', 'makecolor'],
+                    parameters: '{{colourName}} {{colourCode}}'
+                },
+                authentication: simple_discordjs_1.RoleTypes.ADMIN,
+                description: {
+                    message: 'Generate a new colour quickly with a hex code',
+                    example: '{{{prefix}}}quickcolour red FF0000',
+                }
+            };
+        };
         this.getListCommand = () => {
             return {
                 command: {
@@ -114,7 +128,7 @@ class Colourizer {
                 const results = yield colourRepo
                     .createQueryBuilder('colour')
                     .innerJoin('colour.guild', 'guild')
-                    .where('colour.guild = :guildID', { guildID: parseInt(message.guild.id, 10) })
+                    .where('colour.guild = :guildID', { guildID: message.guild.id })
                     .getMany();
                 const yamler = yaml.dump(results.map((colourItem) => {
                     return {
@@ -122,7 +136,7 @@ class Colourizer {
                     };
                 }));
                 const searchMsg = (Array.isArray(msg)) ? msg[0] : msg;
-                yield dispatch_1.dispatch(searchMsg, yamler, undefined, { edit: true, delay: 10000 });
+                yield dispatch_1.dispatch(searchMsg, yamler, undefined, { edit: true, delete: false });
                 return true;
             }
             catch (e) {
@@ -132,27 +146,36 @@ class Colourizer {
         this.getColour = (message, options, parameters, client, silent = false) => __awaiter(this, void 0, void 0, function* () {
             const colourRepo = yield this.connection.getRepository(model_2.Colour);
             const userRepo = yield this.connection.getRepository(model_3.User);
+            const guildRepo = yield this.connection.getRepository(model_1.Guild);
             const colour = yield colourRepo.createQueryBuilder('colour')
                 .innerJoin('colour.guild.id', 'guild')
-                .where('colour.guild = :guildId', { guildId: parseInt(message.guild.id, 10) })
+                .where('colour.guild = :guildId', { guildId: message.guild.id })
                 .andWhere('colour.name LIKE :colourName', { colourName: `%${parameters.named.colour}` })
                 .getOne();
+            const guild = yield guildRepo.findOneById(message.guild.id);
+            if (guild == null) {
+                yield dispatch_1.dispatch(message, 'Guild Error.');
+                return false;
+            }
             if (colour == null) {
                 if (!silent) {
                     yield dispatch_1.dispatch(message, `Colour was not found. Check your spelling of the colour, else ask an admin to add the colour.`);
                 }
                 return false;
             }
-            const userEntitiy = (yield userRepo.findOneById(parseInt(message.author.id, 10)))
-                || (yield actions_3.createUserIfNone(message.author, this.connection, colour));
-            const userList = yield userRepo.find({
-                alias: 'user',
-                innerJoinAndSelect: {
-                    'colour': 'user.colour'
-                }
-            });
-            const user = userList[0];
-            return yield actions_3.setColourToUser(colour, this.connection, user, message);
+            const userEntitiy = (yield actions_3.findUser(message.author.id, guild, this.connection))
+                || (yield actions_3.createUserIfNone(message.author, guild, this.connection, colour));
+            const user = yield userRepo
+                .createQueryBuilder('user')
+                .innerJoin('user.guild', 'guild', 'user.guild = guild.id')
+                .innerJoin('user.colour', 'colour', 'user.colour = colour.id')
+                .where('user.id = :userid', { userid: userEntitiy.id })
+                .getOne();
+            if (user == null) {
+                message.channel.send('User is not in schema: ', user);
+                return false;
+            }
+            return yield actions_3.setColourToUser(colour, this.connection, user, guild, message);
         });
         this.setColour = (message, options, parameters) => __awaiter(this, void 0, void 0, function* () {
             const guildRepo = yield this.connection.getRepository(model_1.Guild);
@@ -162,7 +185,7 @@ class Colourizer {
                 yield dispatch_1.dispatch(message, `No usable roles could be found! Mention a role or redefine your search parameters.`);
                 return false;
             }
-            const guild = yield guildRepo.findOneById(parseInt(message.guild.id, 10));
+            const guild = yield guildRepo.findOneById(message.guild.id);
             if (guild === undefined) {
                 const newGuild = yield actions_2.createGuildIfNone(message);
                 this.setColourEntity(parameters.named.colour, newGuild, roleID, message);
@@ -174,13 +197,13 @@ class Colourizer {
         this.generateStandardColours = (message) => __awaiter(this, void 0, void 0, function* () {
             for (const [colourName, colourCode] of Object.entries(standardColours)) {
                 const discordGuild = message.guild;
-                const oldRole = yield discordGuild.roles.find("name", `colour-${colourName}`);
+                const oldRole = yield discordGuild.roles.find('name', `colour-${colourName}`);
                 const role = (oldRole) ? oldRole : yield discordGuild.createRole({ name: `colour-${colourName}`, color: colourCode });
                 if (!role) {
                     continue;
                 }
                 const guildRepo = yield this.connection.getRepository(model_1.Guild);
-                const guild = (yield guildRepo.findOneById(parseInt(discordGuild.id, 10)))
+                const guild = (yield guildRepo.findOneById(discordGuild.id))
                     || (yield actions_2.createGuildIfNone(message));
                 if (!guild) {
                     yield dispatch_1.dispatch(message, 'Error when setting roles, guild not part of the current database.');
@@ -191,12 +214,22 @@ class Colourizer {
             yield dispatch_1.dispatch(message, 'Colours have been added (or regenerated)!');
             return true;
         });
-        this.quickCreateColour = (message) => __awaiter(this, void 0, void 0, function* () {
-            const colour = /(?:#)?[0-9a-f]{6}/gmi.exec(message.content);
+        this.quickCreateColour = (message, options, params) => __awaiter(this, void 0, void 0, function* () {
+            const colour = /(?:#)?[0-9a-f]{6}/gmi.exec(params.named.colourCode);
+            const guildRepo = yield this.connection.getRepository(model_1.Guild);
+            const guild = (yield guildRepo.findOneById(message.guild.id))
+                || (yield actions_2.createGuildIfNone(message));
             if (!colour) {
                 yield dispatch_1.dispatch(message, 'No colour was specified');
+                return false;
             }
-            return false;
+            const colourCode = colour[0];
+            const colourEntity = yield message.guild.createRole({
+                name: params.named.colourName,
+                color: parseInt(colourCode, 16),
+            });
+            this.setColourEntity(params.named.colourName, guild, colourEntity.id, message);
+            return true;
         });
         this.connection = typeorm_1.getConnectionManager().get();
     }
@@ -250,7 +283,7 @@ class Colourizer {
 
             ${search
                     .map(roleOjb => `Rolename: ${roleOjb.name.replace('@', '')}`)
-                    .join('\n')}`);
+                    .join('\n')}`, undefined, { delete: false });
                 return false;
             }
             return search.firstKey();

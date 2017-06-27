@@ -9,19 +9,27 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const model_1 = require("./../colour/model");
+const model_1 = require("./../user/model");
+const model_2 = require("./../colour/model");
 const typeorm_1 = require("typeorm");
 require("reflect-metadata");
 let Guild = class Guild {
 };
 __decorate([
     typeorm_1.PrimaryColumn(),
-    __metadata("design:type", Number)
+    __metadata("design:type", String)
 ], Guild.prototype, "id", void 0);
 __decorate([
-    typeorm_1.OneToMany(type => model_1.Colour, colour => colour.guild),
+    typeorm_1.OneToMany(type => model_2.Colour, colour => colour.guild, {
+        cascadeInsert: true,
+        cascadeUpdate: true,
+    }),
     __metadata("design:type", Array)
 ], Guild.prototype, "colours", void 0);
+__decorate([
+    typeorm_1.OneToMany(type => model_1.User, user => user.guild),
+    __metadata("design:type", Array)
+], Guild.prototype, "users", void 0);
 __decorate([
     typeorm_1.Column('string', { nullable: true }),
     __metadata("design:type", String)
