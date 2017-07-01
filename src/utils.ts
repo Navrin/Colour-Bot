@@ -1,10 +1,13 @@
-import { RoleTypes } from 'simple-discordjs';
-import { CommandDefinition, CommandFunction} from 'simple-discordjs';
+import { RoleTypes, CommandDefinition, CommandFunction} from 'simple-discordjs';
 import * as Discord from 'discord.js';
 
 
 const getInviteLink: CommandFunction = async (message, opts, params, client) => {
-    const invite = await client.generateInvite(['MANAGE_ROLES', 'READ_MESSAGES', 'SEND_MESSAGES', 'MANAGE_MESSAGES']);
+    const invite = await client.generateInvite([
+        'MANAGE_ROLES', 
+        'READ_MESSAGES', 
+        'SEND_MESSAGES', 
+        'MANAGE_MESSAGES']);
 
     const embed = new Discord.RichEmbed()
         .setURL(invite)
@@ -17,22 +20,22 @@ const getInviteLink: CommandFunction = async (message, opts, params, client) => 
     });
 
     return true;
-}
+};
 
 const getInviteLinkDescriber: () => CommandDefinition = () => {
     return {
         command: {
             action: getInviteLink,
-            names: ['invite', 'getinvite']
+            names: ['invite', 'getinvite'],
         },
         authentication: RoleTypes.ADMIN,
         description: {
             message: 'Get an invite link for the bot with the needed permissions',
             example: '{{{prefix}}}invite',
-        }
-    }
-}
+        },
+    };
+};
 
 export {
-    getInviteLinkDescriber
-}
+    getInviteLinkDescriber,
+};

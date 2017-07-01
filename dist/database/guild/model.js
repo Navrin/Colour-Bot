@@ -34,8 +34,11 @@ __decorate([
     typeorm_1.Column('string', { nullable: true }),
     __metadata("design:type", String)
 ], Guild.prototype, "channel", void 0);
+__decorate([
+    typeorm_1.Column('string', { nullable: true }),
+    __metadata("design:type", String)
+], Guild.prototype, "listmessage", void 0);
 Guild = __decorate([
     typeorm_1.Entity()
 ], Guild);
 exports.Guild = Guild;
-;

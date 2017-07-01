@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+// tslint:disable:import-name
 const simple_discordjs_1 = require("simple-discordjs");
 const Discord = require("discord.js");
 const colourizer_1 = require("./colourizer");
@@ -25,7 +26,7 @@ new simple_discordjs_1.default('c.', client)
     .defineCommand(utils_1.getInviteLinkDescriber())
     .defineCommand(locker.getSetChannelLock())
     .defineCommand(auth.getCommand())
-    .defineCommand(colourizer.getDirtyColourCommand())
+    .defineCommand(colourizer.getDirtyColourCommand('c.'))
     .defineCommand(colourizer.getSetCommand())
     .defineCommand(colourizer.getColourCommand())
     .defineCommand(colourizer.getListCommand())

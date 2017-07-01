@@ -1,5 +1,10 @@
 import * as Discord from 'discord.js';
-import { CommandFunction, CommandDefinition, RoleTypes, MiddlewareFunction } from 'simple-discordjs';
+import { 
+    CommandFunction, 
+    CommandDefinition, 
+    RoleTypes, 
+    MiddlewareFunction,
+} from 'simple-discordjs';
 import { Guild } from './database/guild/model';
 import { Connection, getConnectionManager} from 'typeorm';
 import { createGuildIfNone } from './database/guild/actions';
@@ -19,14 +24,14 @@ class ChannelLocker {
             command: {
                 action: this.setChannel,
                 names: ['setchannel', 'setcolourchannel'],
-                parameters: '{{channel}}'
+                parameters: '{{channel}}',
             },
             authentication: RoleTypes.ADMIN,
             description: {
                 message: 'Lock the bot to operate within the specified channel (OWNER ONLY)',
                 example: '{{{prefix}}}setchannel #colour-requests',
-            }
-        }
+            },
+        };
     }    
 
     lock: MiddlewareFunction = async (message, options) => {
@@ -35,6 +40,10 @@ class ChannelLocker {
         }
 
         if (!('custom' in options)) {
+            return true;
+        }
+
+        if (options.authentication && options.authentication > 0) {
             return true;
         }
 
@@ -54,7 +63,12 @@ class ChannelLocker {
         return false;
     }
 
-    private setChannel: CommandFunction = async (message, option, parameters: { array: string[], named: { channel: string} }, client) => {
+    private setChannel: CommandFunction = async (
+        message, 
+        option, 
+        parameters: { array: string[], named: { channel: string} }, 
+        client,
+    ) => {
         const guildRepo = await this.connection.getRepository(Guild);
         const guild = await guildRepo.findOneById(message.guild.id)
             || await createGuildIfNone(message);

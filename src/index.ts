@@ -1,3 +1,4 @@
+// tslint:disable:import-name
 import Commands, { RateLimiter, Auth } from 'simple-discordjs';
 import * as Discord from 'discord.js';
 import Colourizer from './colourizer';
@@ -15,20 +16,23 @@ const colourizer = new Colourizer();
 const auth = new Auth(settings.superuser || process.env.COLOUR_BOT_SUPERUSER);
 const locker = new ChannelLocker();
 
-client.login(settings.token || process.env.COLOUR_BOT_TOKEN)
+client.login(settings.token || process.env.COLOUR_BOT_TOKEN);
 client.on('ready', () => {
     console.log('I\'m alive!');
 });
 process.on('unhandledRejection', (e: any) => {
     console.error(e);
-})
+});
+
 new Commands('c.', client)
     .use(auth.authenticate)
     .use(locker.lock)
     .defineCommand(getInviteLinkDescriber())
     .defineCommand(locker.getSetChannelLock())
     .defineCommand(auth.getCommand())
-    .defineCommand(colourizer.getDirtyColourCommand())
+    .defineCommand(colourizer.getDirtyColourCommand('c.')) 
+    // uses m8 regex to allow for the colours to be called without any prefix
+    // only in some channels though.
     .defineCommand(colourizer.getSetCommand())
     .defineCommand(colourizer.getColourCommand())
     .defineCommand(colourizer.getListCommand())

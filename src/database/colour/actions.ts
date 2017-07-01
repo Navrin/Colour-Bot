@@ -15,7 +15,7 @@ export const createNewColour = async (message: Discord.Message, name: string, ro
     const colour = new Colour();
     const guild = await guildRepo.findOneById(message.guild.id); 
     if (!guild) {
-        message.channel.send(`Guild does not exist.`)
+        message.channel.send(`Guild does not exist.`);
         return false;
     }
 
@@ -30,4 +30,4 @@ export const createNewColour = async (message: Discord.Message, name: string, ro
     await colourRepo.persist(colour);
 
     return await colour;
-}
+};

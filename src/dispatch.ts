@@ -10,7 +10,7 @@ const dispatch = async (
          message: Discord.Message,
          content?: string | any | undefined, 
          messageOptions?: Discord.MessageOptions, 
-         options?: DispatchOptions
+         options?: DispatchOptions,
     ) => {
     const opts = (options != null) 
         ? { edit: false, delay: 5000, delete: true, ...options  }
@@ -52,9 +52,9 @@ const dispatch = async (
         message.delete(opts.delay);
     }
     return msg;
-}
+};
 
 
 export {
-    dispatch
+    dispatch,
 };

@@ -19,4 +19,7 @@ export class Guild {
 
     @Column('string', { nullable: true })
     channel?: string;
-};
+
+    @Column('string', { nullable: true })
+    listmessage?: string;
+}

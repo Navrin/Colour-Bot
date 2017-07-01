@@ -15,8 +15,12 @@
     "@types/node": "^7.0.29",
     "discord.js": "^11.1.0",
     "js-yaml": "^3.8.4",
-    "simple-discordjs": "^0.2.4",
+    "simple-discordjs": "1.2.4",
     "ts-node": "^3.0.4",
     "typescript": "^2.3.4"
+  },
+  "devDependencies": {
+    "tslint": "^5.4.3",
+    "tslint-config-airbnb": "^5.2.1"
   }
 }

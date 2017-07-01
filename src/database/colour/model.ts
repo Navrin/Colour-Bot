@@ -22,4 +22,4 @@ export class Colour {
 
     @ManyToOne(type => Guild, guild => guild.colours)
     guild: Guild;
-};
+}

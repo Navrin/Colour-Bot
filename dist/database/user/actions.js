@@ -49,9 +49,9 @@ const setColourToUser = (newColour, connection, user, guild, message) => __await
         const colourRepo = yield connection.getRepository(model_2.Colour);
         const guildRepo = yield connection.getRepository(model_3.Guild);
         const colourList = yield colourRepo.find();
-        if (user.colour != undefined) {
+        if (user.colour !== undefined) {
             const oldColour = message.guild.roles.get(user.colour.roleID);
-            if (oldColour == undefined) {
+            if (oldColour === undefined) {
                 dispatch_1.dispatch(message, `Error setting colour!`);
                 return false;
             }
@@ -59,7 +59,7 @@ const setColourToUser = (newColour, connection, user, guild, message) => __await
         }
         const userMember = message.guild.member(message.author.id);
         const possibleColours = colourList
-            .map((colour) => userMember.roles.find('name', colour.name))
+            .map(colour => userMember.roles.find('name', colour.name))
             .filter(id => id);
         yield userMember.removeRoles(possibleColours);
         const updatedUser = yield userRepo.persist(user);
@@ -68,7 +68,7 @@ const setColourToUser = (newColour, connection, user, guild, message) => __await
         yield userRepo.persist(user);
         yield guildRepo.persist(guild);
         const nextColour = message.guild.roles.get(newColour.roleID.toString());
-        if (nextColour == undefined) {
+        if (nextColour === undefined) {
             dispatch_1.dispatch(message, `Error getting colour!`);
             return false;
         }

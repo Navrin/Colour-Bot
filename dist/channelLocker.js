@@ -20,13 +20,13 @@ class ChannelLocker {
                 command: {
                     action: this.setChannel,
                     names: ['setchannel', 'setcolourchannel'],
-                    parameters: '{{channel}}'
+                    parameters: '{{channel}}',
                 },
                 authentication: simple_discordjs_1.RoleTypes.ADMIN,
                 description: {
                     message: 'Lock the bot to operate within the specified channel (OWNER ONLY)',
                     example: '{{{prefix}}}setchannel #colour-requests',
-                }
+                },
             };
         };
         this.lock = (message, options) => __awaiter(this, void 0, void 0, function* () {
@@ -34,6 +34,9 @@ class ChannelLocker {
                 return true;
             }
             if (!('custom' in options)) {
+                return true;
+            }
+            if (options.authentication && options.authentication > 0) {
                 return true;
             }
             const guildRepo = this.connection.getRepository(model_1.Guild);

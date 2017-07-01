@@ -5,11 +5,12 @@ import { Colour } from '../colour/model';
 import { Guild } from '../guild/model';
 import { dispatch } from '../../dispatch';
 
-type CreateUserFunc =
-    (discordUser: Discord.User,
+type CreateUserFunc = (
+        discordUser: Discord.User,
         guild: Guild,
         connection: Connection,
-        colour: Colour) => Promise<User>;
+        colour: Colour,
+    ) => Promise<User>;
 
 const createUserIfNone: CreateUserFunc = async (discordUser, guild, connection, colour) => {
     try {
@@ -28,7 +29,7 @@ const createUserIfNone: CreateUserFunc = async (discordUser, guild, connection, 
 
         return user;
     } catch (e) {
-        console.log(e)
+        console.log(e);
         return;
     }
 };
@@ -44,10 +45,16 @@ const findUser = async (user: string, guild: Guild, connection: Connection) => {
         .getOne();
 
     return userEntity;
-}
+};
 
 
-const setColourToUser = async (newColour: Colour, connection: Connection, user: User, guild: Guild, message: Discord.Message) => {
+const setColourToUser = async (
+        newColour: Colour, 
+        connection: Connection, 
+        user: User, 
+        guild: Guild, 
+        message: Discord.Message,
+    ) => {
     try {
         const userRepo = await connection.getRepository(User);
         const colourRepo = await connection.getRepository(Colour);
@@ -55,10 +62,10 @@ const setColourToUser = async (newColour: Colour, connection: Connection, user: 
 
         const colourList = await colourRepo.find();
 
-        if (user.colour != undefined) {
+        if (user.colour !== undefined) {
             const oldColour = message.guild.roles.get(user.colour.roleID);
 
-            if (oldColour == undefined) {
+            if (oldColour === undefined) {
                 dispatch(message, `Error setting colour!`);
                 return false;
             }
@@ -66,7 +73,7 @@ const setColourToUser = async (newColour: Colour, connection: Connection, user: 
         }
         const userMember = message.guild.member(message.author.id);
         const possibleColours = colourList
-            .map((colour) => userMember.roles.find('name', colour.name))
+            .map(colour => userMember.roles.find('name', colour.name))
             .filter(id => id);
         
         await userMember.removeRoles(possibleColours);
@@ -80,7 +87,7 @@ const setColourToUser = async (newColour: Colour, connection: Connection, user: 
         await guildRepo.persist(guild);
 
         const nextColour = message.guild.roles.get(newColour.roleID.toString());
-        if (nextColour == undefined) {
+        if (nextColour === undefined) {
             dispatch(message, `Error getting colour!`);
             return false;
         }
@@ -88,7 +95,7 @@ const setColourToUser = async (newColour: Colour, connection: Connection, user: 
             message.guild.member(message.author).addRole(nextColour);
             dispatch(message, `Your colour has been set!`);
         } catch (e) {
-            dispatch(message, `Error setting colour: ${e}`)
+            dispatch(message, `Error setting colour: ${e}`);
         }
 
         return true;
@@ -96,11 +103,10 @@ const setColourToUser = async (newColour: Colour, connection: Connection, user: 
         dispatch(message, `error: ${e}`);
         return false;
     }
-
-}
+};
 
 export {
     createUserIfNone,
     setColourToUser,
     findUser,
-}
+};

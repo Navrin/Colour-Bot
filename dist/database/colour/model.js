@@ -42,4 +42,3 @@ Colour = __decorate([
     typeorm_1.Entity()
 ], Colour);
 exports.Colour = Colour;
-;

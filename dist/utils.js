@@ -11,7 +11,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const simple_discordjs_1 = require("simple-discordjs");
 const Discord = require("discord.js");
 const getInviteLink = (message, opts, params, client) => __awaiter(this, void 0, void 0, function* () {
-    const invite = yield client.generateInvite(['MANAGE_ROLES', 'READ_MESSAGES', 'SEND_MESSAGES', 'MANAGE_MESSAGES']);
+    const invite = yield client.generateInvite([
+        'MANAGE_ROLES',
+        'READ_MESSAGES',
+        'SEND_MESSAGES',
+        'MANAGE_MESSAGES'
+    ]);
     const embed = new Discord.RichEmbed()
         .setURL(invite)
         .setTitle('Bot Invite Link.')
@@ -26,13 +31,13 @@ const getInviteLinkDescriber = () => {
     return {
         command: {
             action: getInviteLink,
-            names: ['invite', 'getinvite']
+            names: ['invite', 'getinvite'],
         },
         authentication: simple_discordjs_1.RoleTypes.ADMIN,
         description: {
             message: 'Get an invite link for the bot with the needed permissions',
             example: '{{{prefix}}}invite',
-        }
+        },
     };
 };
 exports.getInviteLinkDescriber = getInviteLinkDescriber;

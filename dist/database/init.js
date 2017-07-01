@@ -8,7 +8,7 @@ const connectionOptions = {
         storage: 'colourful.db',
     },
     entities: [
-        ...entities_1.default
+        ...entities_1.default,
     ],
     autoSchemaSync: true,
     autoMigrationsRun: true,
