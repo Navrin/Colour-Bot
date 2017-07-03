@@ -1,3 +1,5 @@
+import * as path from 'path';
+import * as fs from 'mz/fs';
 import { createNewColour } from './database/colour/actions';
 import { getConnectionManager, Connection } from 'typeorm';
 import { CommandFunction, CommandDefinition, RoleTypes } from 'simple-discordjs';
@@ -10,6 +12,20 @@ import * as yaml from 'js-yaml';
 import * as Discord from 'discord.js';
 import { stripIndents, oneLineTrim } from 'common-tags';
 import { dispatch } from './dispatch';
+import { JSDOM } from 'jsdom';
+
+const webshot = require('webshot');
+const createShot = (html: string, file: string, settings: any) => {
+    return new Promise((res, rej) => {
+        webshot(html, file, settings, (err: any) => {
+            if (err) {
+                rej(err);
+            }
+
+            res();
+        });
+    });
+};
 
 const sleep = (delay: number) => new Promise((res, rej) => {
     setTimeout(() => res(), delay);
@@ -34,6 +50,7 @@ const standardColours: ColourList = {
 
 export default class Colourizer {
     connection: Connection;
+    singletonInProgress: boolean;
 
     constructor() {
         this.connection = getConnectionManager().get();
@@ -89,22 +106,23 @@ and if more than one role is found, specify role name further.',
     public getDirtyColourCommand: (prefix: string) => CommandDefinition = (prefix: string) => {
         return {
             command: {
-                action: async (message, options, params, client) => {
-                    const res = new RegExp(`[a-zA-Z\s]+`).exec(message.content);
+                action: async (message, options, params, client, self) => {
+                    const res = new RegExp(`(.\s?)+`).exec(message.content);
                     if (res && !message.content.startsWith(prefix)) {
                         await this
                             .getColour(
                             message, options, {
                                 ...params,
-                                named: { ...params.named,colour: res[0] },
-                            }, 
-                            client);
+                                named: { ...params.named, colour: res[0] },
+                            },
+                            client,
+                            self);
                     }
                     return false;
                 },
                 names: ['colourdirty'],
                 noPrefix: true,
-                pattern: /[a-zA-Z\s]+/,
+                pattern: /(.\s?)+/,
             },
             custom: {
                 locked: true,
@@ -159,10 +177,25 @@ automatically updated',
         };
     }
 
+    public getDeleteColour: () => CommandDefinition = () => {
+        return {
+            command: {
+                action: this.deleteColourEntity,
+                names: ['delete', 'remove', 'purge'],
+                parameters: '{{colourName}}',
+            },
+            authentication: RoleTypes.ADMIN,
+            description: {
+                message: 'Delete a role from the schema. (ADMIN ONLY)',
+                example: '{{{prefix}}}delete purple',
+            },
+        };
+    }
+
     /*********************
      * COMMAND FUNCTIONS *
-     *********************/ 
-    
+     *********************/
+
     /**
      * Create a list of colours currently in the guild schema
      * // TODO Create a singleton message for each guild that can be pinned
@@ -183,66 +216,168 @@ automatically updated',
 
     private async updateOrListColours(message: Discord.Message) {
         const guildRepo = await this.connection.getRepository(Guild);
-            const guild = 
-                   await guildRepo.findOneById(message.guild.id) || 
-                   await createGuildIfNone(message);
-            
-            if (guild.listmessage) {
-                const channel = <Discord.TextChannel>message
-                    .guild
-                    .channels
-                    .find('id', guild.channel);
+        const guild =
+            await guildRepo.findOneById(message.guild.id) ||
+            await createGuildIfNone(message);
 
-                if (!channel) {
-                    message.channel.send('use setchannel to create a colour channel.');
-                    return false;
-                }
+        if (guild.listmessage) {
+            if (!guild.channel) {
+                message.channel.send('use setchannel to create a colour channel.');
+                return false; 
+            }
+            const channel = <Discord.TextChannel>message
+                .guild
+                .channels
+                .find('id', guild.channel);
 
-                const msg = await channel.fetchMessage(guild.listmessage);
-                if (!msg) {
-                    this.createNewColourSingleton(message, guild);
-                }
-
-                this.syncColourList(msg);
-                return true;
+            if (!channel) {
+                message.channel.send('use setchannel to create a colour channel.');
+                return false;
             }
 
+            try {
+                const msg = await channel.fetchMessage(guild.listmessage);
+                this.syncColourList(msg);
+                return true;
+            } catch (e) {
+                !this.singletonInProgress && this.createNewColourSingleton(message, guild);
+                return true;
+            }
+        }
 
-            this.createNewColourSingleton(message, guild);
+        !this.singletonInProgress && this.createNewColourSingleton(message, guild);
+        return true;
     }
 
     private async createNewColourSingleton(message: Discord.Message, guild: Guild) {
+        this.singletonInProgress = true;
         const msg = await message.channel.send(
 `The following message will be edited to a list of colours for this guild.
 These colours will automatically update on colour change.
 __Please do not delete this message__
-Pin it if you wish, but the colour bot should maintain a clean (enough) channel history.`,
+As images cannot be edited, do not pin the message, \
+but the colour bot should maintain a clean (enough) \ 
+channel history to keep the message at the top.`,
         );
 
-        const singleMsg = Array.isArray(msg) ? msg[0] : msg; 
+        const singleMsg = Array.isArray(msg) ? msg[0] : msg;
         const guildRepo = await this.connection.getRepository(Guild);
         guild.listmessage = singleMsg.id;
         guildRepo.persist(guild);
 
-        await sleep(3000);
+        await sleep(7000);
 
-        this.syncColourList(singleMsg);
+        await this.syncColourList(singleMsg);
+        this.singletonInProgress = false;
     }
 
     private async syncColourList(message: Discord.Message) {
         const colourRepo = await this.connection.getRepository(Colour);
+        const guildRepo = await this.connection.getRepository(Guild);
+        const guild = await guildRepo.findOneById(message.guild.id)
+            || await createGuildIfNone(message);
+        
         const results = await colourRepo
             .createQueryBuilder('colour')
             .innerJoin('colour.guild', 'guild')
             .where('colour.guild = :guildID', { guildID: message.guild.id })
             .getMany();
+
+
+
+        const dom = 
+        `<html>
+            <div id="list" style="
+                font-size: 60px; 
+                margin-top: 0;
+                margin: 0;
+                font-family: sans-serif;
+                width: 100vw; 
+                height: 100vh">
+               ${results.map((item) => {
+                    const guildRole = message.guild.roles.find('id', item.roleID);
+                    if (!guildRole) {
+                        return false;
+                    }
+                    const colour = guildRole.hexColor;
+
+                    return `
+                    <div style="width: 50%; display: flex; float: left;"> 
+                        <div style="
+                            width: 50%; 
+                            float: left;
+                            background-color: white;
+                            color: ${colour}"> 
+                            <span style="padding-left: 15px;">
+                                ${item.name.replace('colour-', '')} 
+                            </span>
+                        </div>
+                        <div style="
+                            width: 50%; 
+                            background-color: ${colour}; 
+                            color: #${(0xFFFFFF - guildRole.color).toString(16)};
+                            float: right;"> 
+                            <span style="width: 80%;">
+                                ${colour.replace('#', '')}
+                            </span>
+                        </div> 
+                    </div>
+                    <div style="
+                        width: 50%; 
+                        display: flex; 
+                        float: right;
+                        background-color: #36393e"> 
+                        <div style="
+                            width: 50%; 
+                            float: left;
+                            color: ${colour}"> 
+                            ${item.name.replace('colour-', '')} 
+                        </div>
+                        <div style="
+                            width: 50%; 
+                            background-color: ${colour}; 
+                            color: #${(0xFFFFFF - guildRole.color).toString(16)};
+                            float: right;"> 
+                            <span style="width: 80%;">
+                                ${colour.replace('#', '')}
+                            </span>
+                        </div> 
+                    </div>`;
+                },
+               ).join('\n')}
+            </div>
+        </html>`;
+
         const yamler = yaml.dump(results.map((colourItem) => {
             return {
                 name: colourItem.name.replace('colour-', ''),
             };
         }));
 
-        message.edit(yamler);
+        const img = 'list.png';
+        await createShot(
+            dom, 
+            img, 
+            { 
+                siteType: 'html', 
+                windowSize: {
+                    height: `${results.length * 40}`,
+                    width: '2500',
+                },
+                shotSize: { 
+                    height: 'all', 
+                    width: 'all',
+                },
+            });
+
+        const newMsgResolve = await message.channel.send({ file: img });
+
+        const newMessage = (Array.isArray(newMsgResolve)) ? newMsgResolve[0] : newMsgResolve;
+
+        guild.listmessage = newMessage.id;
+        guildRepo.persist(guild);
+
+        await message.delete();
     }
 
     /**
@@ -255,20 +390,24 @@ Pin it if you wish, but the colour bot should maintain a clean (enough) channel 
      * @memberof Colourizer
      */
     private getColour: CommandFunction = async (
-            message, 
-            options, 
-            parameters: { array: string[], named: { colour: string } }, 
-            client, 
-            silent: boolean = false,
-        ) => {
+        message,
+        options,
+        parameters: { array: string[], named: { colour: string } },
+        client,
+        self,
+        silent: boolean = false,
+    ) => {
         const colourRepo = await this.connection.getRepository(Colour);
         const userRepo = await this.connection.getRepository(User);
         const guildRepo = await this.connection.getRepository(Guild);
-        
+
         const colour = await colourRepo.createQueryBuilder('colour')
             .innerJoin('colour.guild.id', 'guild')
             .where('colour.guild = :guildId', { guildId: message.guild.id })
-            .andWhere('colour.name LIKE :colourName', { colourName: `%${parameters.named.colour}` })
+            .andWhere(
+                'colour.name LIKE :colourName', 
+                { colourName: `%${parameters.named.colour}%` },
+            )
             .getOne();
 
         const guild = await guildRepo.findOneById(message.guild.id);
@@ -280,7 +419,7 @@ Pin it if you wish, but the colour bot should maintain a clean (enough) channel 
 
         if (colour == null) {
             if (!silent) {
-                await dispatch(message, 'Colour was not found. Check your spelling\
+                await dispatch(message, 'Colour was not found. Check your spelling \
 of the colour, else ask an admin to add the colour.');
             }
             return false;
@@ -295,7 +434,7 @@ of the colour, else ask an admin to add the colour.');
             .innerJoin('user.colour', 'colour', 'user.colour = colour.id')
             .where('user.id = :userid', { userid: userEntitiy.id })
             .getOne();
-        
+
         if (user == null) {
             message.channel.send('User is not in schema: ', user);
             return false;
@@ -317,10 +456,10 @@ of the colour, else ask an admin to add the colour.');
      * @memberof Colourizer
      */
     private setColour: CommandFunction = async (
-            message, 
-            options, 
-            parameters: { array: string[], named: { colour: string, role: string } },
-        ) => {
+        message,
+        options,
+        parameters: { array: string[], named: { colour: string, role: string } },
+    ) => {
         const guildRepo = await this.connection.getRepository(Guild);
         const colourRepo = await this.connection.getRepository(Colour);
 
@@ -358,11 +497,12 @@ Mention a role or redefine your search parameters.`);
      * @memberof Colourizer
      */
     private async setColourEntity(
-            colourName: string, 
-            guild: Guild,
-            roleID: string, 
-            message: Discord.Message, 
-            silent: boolean = false) {
+        colourName: string,
+        guild: Guild,
+        roleID: string,
+        message: Discord.Message,
+        silent: boolean = false,
+        noListUpdate: boolean = false) {
         const colourRepo = await this.connection.getRepository(Colour);
         const guildRepo = await this.connection.getRepository(Guild);
 
@@ -377,14 +517,17 @@ Mention a role or redefine your search parameters.`);
             const newColour = await createNewColour(message, colourName, roleID);
             if (!newColour) {
                 dispatch(message, `Colour wasn't created. Aborting function...`);
-                return false;
+                throw new Error('Colour failure!');
             }
 
             if (!silent) {
                 dispatch(message, 'Colour has successfully been added to the list!');
             }
 
-            this.updateOrListColours(message);
+            if (!noListUpdate) {
+                this.updateOrListColours(message);
+            }
+
             return true;
         }
 
@@ -399,11 +542,14 @@ Mention a role or redefine your search parameters.`);
                 dispatch(message, `Colour role has successfully been updated!`);
             }
 
-            this.updateOrListColours(message);
+            if (!noListUpdate) {
+                this.updateOrListColours(message);
+            }
+
             return true;
         } catch (e) {
             dispatch(message, `Error when updating colour: ${e.toString()}`);
-            return false;
+            throw new Error('Colour failure!');
         }
     }
 
@@ -427,15 +573,17 @@ Mention a role or redefine your search parameters.`);
         const search = message.guild.roles.filter(roleObject => roleObject.name.includes(role));
 
         if (search.size > 1) {
-            await dispatch(message, 
-                           stripIndents`Multiple results found for the search ${role}!
+            await dispatch(
+                message,
+                stripIndents`Multiple results found for the search ${role}!
             Expected one role, found: 
-
-            ${
+                    ${
                     search
                         .map(roleOjb => `Rolename: ${roleOjb.name.replace('@', '')}`)
                         .join('\n')
-                    }`,    undefined, { delete: false });
+                    }`, 
+                undefined, 
+                { delay: 10000 });
             return false;
         }
 
@@ -454,10 +602,10 @@ Mention a role or redefine your search parameters.`);
         for (const [colourName, colourCode] of Object.entries(standardColours)) {
             const discordGuild = message.guild;
             const oldRole = await discordGuild.roles.find('name', `colour-${colourName}`);
-            const role = (oldRole) 
-                ? oldRole 
-                : await discordGuild.createRole({ 
-                    name: `colour-${colourName}`, 
+            const role = (oldRole)
+                ? oldRole
+                : await discordGuild.createRole({
+                    name: `colour-${colourName}`,
                     color: colourCode,
                 });
 
@@ -472,10 +620,14 @@ Mention a role or redefine your search parameters.`);
             if (!guild) {
                 await dispatch(message, 'Error when setting roles,\
 guild not part of the current database.');
-                return false;
+                break;
             }
 
-            this.setColourEntity(`colour-${colourName}`, guild, role.id, message, true);
+            try {
+                this.setColourEntity(`colour-${colourName}`, guild, role.id, message, true, true);
+            } catch (e) {
+                break;
+            }
         }
 
         await dispatch(message, 'Colours have been added (or regenerated)!');
@@ -489,7 +641,7 @@ guild not part of the current database.');
      * 
      * @private
      * @type {CommandFunction}
-     * @memberof Colour>:(izer
+     * @memberof Colourizer
      */
     private quickCreateColour: CommandFunction = async (message, options, params: {
         array: string[],
@@ -502,7 +654,7 @@ guild not part of the current database.');
         const guildRepo = await this.connection.getRepository(Guild);
         const guild = await guildRepo.findOneById(message.guild.id)
             || await createGuildIfNone(message);
-        
+
         if (!colour) {
             await dispatch(message, 'No colour was specified');
             return false;
@@ -510,14 +662,54 @@ guild not part of the current database.');
 
         const colourCode = colour[0];
 
-        const colourEntity = await 
-           message.guild.createRole({
-               name: params.named.colourName,
-               color: parseInt(colourCode.replace('#', ''), 16),
-           });
+        const colourEntity = await
+            message.guild.createRole({
+                name: params.named.colourName,
+                color: parseInt(colourCode.replace('#', ''), 16),
+            });
 
         this.setColourEntity(params.named.colourName, guild, colourEntity.id, message);
 
+        return true;
+    }
+
+    /**
+     * Deletes a colour from the db and the role, if it exists
+     * For admins only.
+     * 
+     * @private
+     * @type {CommandFunction}
+     * @memberof Colourizer
+     */
+    private deleteColourEntity: CommandFunction = async (message, ots, params: {
+        array: string[],
+        named: {
+            colourName: string,
+        },
+    }) => {
+        const colourRepo = await this.connection.getRepository(Colour);
+        const guildRepo = await this.connection.getRepository(Guild);
+
+        const colour = await colourRepo
+            .createQueryBuilder('colour')
+            .innerJoin('colour.guild', 'guild')
+            .where('colour.guild = :guildID', { guildID: message.guild.id })
+            .andWhere('colour.name LIKE :colourName', { colourName: params.named.colourName })
+            .getOne();
+
+        if (!colour) {
+            dispatch(message, 'Colour was not found, check your name with the colourlist.');
+            return false;
+        }
+
+        const role = await message.guild.roles.find('id', colour.roleID);
+        if (role) {
+            role.delete();
+        }
+
+        await colourRepo.remove(colour);
+        this.updateOrListColours(message);
+        dispatch(message, 'Entity deleted.');
         return true;
     }
 }

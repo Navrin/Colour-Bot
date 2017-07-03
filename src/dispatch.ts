@@ -13,8 +13,8 @@ const dispatch = async (
          options?: DispatchOptions,
     ) => {
     const opts = (options != null) 
-        ? { edit: false, delay: 5000, delete: true, ...options  }
-        : { edit: false, delay: 5000, delete: true };
+        ? { edit: false, delay: 1000, delete: true, ...options  }
+        : { edit: false, delay: 1000, delete: true };
 
     if (opts.edit) {
         const msg = await message.edit(content, messageOptions);
@@ -33,8 +33,8 @@ const dispatch = async (
             return msg;
         }
         if (opts.delete) {
-            await msg.delete(opts.delay);
-            await message.delete(opts.delay);
+            msg.delete(opts.delay);
+            message.delete(opts.delay);
         }
         return msg;
     }

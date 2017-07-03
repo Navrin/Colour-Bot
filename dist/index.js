@@ -11,14 +11,17 @@ const channelLocker_1 = require("./channelLocker");
 const limiter = new simple_discordjs_1.RateLimiter(1, 100);
 const client = new Discord.Client();
 const colourizer = new colourizer_1.default();
-const auth = new simple_discordjs_1.Auth(settings.superuser || process.env.COLOUR_BOT_SUPERUSER);
+const auth = new simple_discordjs_1.Auth(settings.superuser || process.env.COLOUR_BOT_SUPERUSER, {
+    deleteMessageDelay: 100,
+    deleteMessages: true,
+});
 const locker = new channelLocker_1.default();
 client.login(settings.token || process.env.COLOUR_BOT_TOKEN);
 client.on('ready', () => {
     console.log('I\'m alive!');
 });
 process.on('unhandledRejection', (e) => {
-    console.error(e);
+    console.error(e, e.stack);
 });
 new simple_discordjs_1.default('c.', client)
     .use(auth.authenticate)
@@ -32,5 +35,6 @@ new simple_discordjs_1.default('c.', client)
     .defineCommand(colourizer.getListCommand())
     .defineCommand(colourizer.getGenerateColours())
     .defineCommand(colourizer.getQuickColourCommand())
+    .defineCommand(colourizer.getDeleteColour())
     .generateHelp()
     .listen();
