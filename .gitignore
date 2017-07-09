@@ -62,6 +62,7 @@ typings/
 .env
 
 botConfig.json
+list.png
 *.db
 
 # End of https://www.gitignore.io/api/node

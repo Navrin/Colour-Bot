@@ -17,7 +17,6 @@
     "@types/jsdom": "^11.0.1",
     "@types/mz": "^0.0.31",
     "@types/node": "^7.0.29",
-    "canvas": "^1.6.5",
     "discord.js": "^11.1.0",
     "dom-to-image": "^2.5.2",
     "express": "^4.15.3",
@@ -28,7 +27,7 @@
     "public-ip": "^2.3.5",
     "simple-discordjs": "^1.3.6",
     "ts-node": "^3.0.4",
-    "typescript": "^2.3.4",
+    "typescript": "^2.4.1",
     "webshot": "^0.18.0"
   },
   "devDependencies": {

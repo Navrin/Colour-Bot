@@ -13,6 +13,7 @@ import * as Discord from 'discord.js';
 import { stripIndents, oneLineTrim } from 'common-tags';
 import { dispatch } from './dispatch';
 import { JSDOM } from 'jsdom';
+import { confirm } from './emojis';
 
 const webshot = require('webshot');
 const createShot = (html: string, file: string, settings: any) => {
@@ -110,13 +111,18 @@ and if more than one role is found, specify role name further.',
                     const res = new RegExp(`(.\s?)+`).exec(message.content);
                     if (res && !message.content.startsWith(prefix)) {
                         await this
-                            .getColour(
-                            message, options, {
-                                ...params,
-                                named: { ...params.named, colour: res[0] },
-                            },
-                            client,
-                            self);
+                                .getColour(
+                                    message,
+                                    options, 
+                                    {
+                                        ...params,
+                                        named: { 
+                                            colour: res[0],
+                                        },
+                                    },
+                                    client,
+                                    self,
+                                );
                     }
                     return false;
                 },
@@ -222,7 +228,7 @@ automatically updated',
 
         if (guild.listmessage) {
             if (!guild.channel) {
-                message.channel.send('use setchannel to create a colour channel.');
+                confirm(message, 'failure', 'use setchannel to create a colour channel.');
                 return false; 
             }
             const channel = <Discord.TextChannel>message
@@ -231,13 +237,14 @@ automatically updated',
                 .find('id', guild.channel);
 
             if (!channel) {
-                message.channel.send('use setchannel to create a colour channel.');
+                confirm(message, 'failure', 'use setchannel to create a colour channel.');
                 return false;
             }
 
             try {
                 const msg = await channel.fetchMessage(guild.listmessage);
                 this.syncColourList(msg);
+                confirm(message, 'success');
                 return true;
             } catch (e) {
                 !this.singletonInProgress && this.createNewColourSingleton(message, guild);
@@ -268,6 +275,7 @@ channel history to keep the message at the top.`,
         await sleep(7000);
 
         await this.syncColourList(singleMsg);
+        confirm(message, 'success'); 
         this.singletonInProgress = false;
     }
 
@@ -377,7 +385,7 @@ channel history to keep the message at the top.`,
         guild.listmessage = newMessage.id;
         guildRepo.persist(guild);
 
-        await message.delete();
+        message.delete();
     }
 
     /**
@@ -413,13 +421,13 @@ channel history to keep the message at the top.`,
         const guild = await guildRepo.findOneById(message.guild.id);
 
         if (guild == null) {
-            await dispatch(message, 'Guild Error.');
+            await confirm(message, 'failure', 'Guild Error.');
             return false;
         }
 
         if (colour == null) {
             if (!silent) {
-                await dispatch(message, 'Colour was not found. Check your spelling \
+                await confirm(message, 'failure', 'Colour was not found. Check your spelling \
 of the colour, else ask an admin to add the colour.');
             }
             return false;
@@ -427,6 +435,11 @@ of the colour, else ask an admin to add the colour.');
 
         const userEntitiy = await findUser(message.author.id, guild, this.connection)
             || await createUserIfNone(message.author, guild, this.connection, colour);
+
+        if (userEntitiy === undefined) {
+            await confirm(message, 'failure', 'Error when creating user.');
+            return;
+        }
 
         const user = await userRepo
             .createQueryBuilder('user')
@@ -466,7 +479,7 @@ of the colour, else ask an admin to add the colour.');
 
         const roleID = await this.findRole(message, parameters.named.role);
         if (!roleID) {
-            await dispatch(message, `No usable roles could be found! \
+            await confirm(message, 'failure',`No usable roles could be found! \
 Mention a role or redefine your search parameters.`);
             return false;
         }
@@ -516,12 +529,12 @@ Mention a role or redefine your search parameters.`);
         if (colour === undefined) {
             const newColour = await createNewColour(message, colourName, roleID);
             if (!newColour) {
-                dispatch(message, `Colour wasn't created. Aborting function...`);
+                confirm(message, 'failure', 'Failure setting colour!');
                 throw new Error('Colour failure!');
             }
 
             if (!silent) {
-                dispatch(message, 'Colour has successfully been added to the list!');
+                confirm(message, 'success');
             }
 
             if (!noListUpdate) {
@@ -539,7 +552,7 @@ Mention a role or redefine your search parameters.`);
             await guildRepo.persist(guild);
 
             if (!silent) {
-                dispatch(message, `Colour role has successfully been updated!`);
+                confirm(message, 'success');
             }
 
             if (!noListUpdate) {
@@ -548,7 +561,7 @@ Mention a role or redefine your search parameters.`);
 
             return true;
         } catch (e) {
-            dispatch(message, `Error when updating colour: ${e.toString()}`);
+            confirm(message, 'failure', `Error when updating colour: ${e.toString()}`);
             throw new Error('Colour failure!');
         }
     }
@@ -573,17 +586,18 @@ Mention a role or redefine your search parameters.`);
         const search = message.guild.roles.filter(roleObject => roleObject.name.includes(role));
 
         if (search.size > 1) {
-            await dispatch(
+            await confirm(
                 message,
+                'failure',
                 stripIndents`Multiple results found for the search ${role}!
-            Expected one role, found: 
+                Expected one role, found: 
                     ${
                     search
                         .map(roleOjb => `Rolename: ${roleOjb.name.replace('@', '')}`)
                         .join('\n')
-                    }`, 
-                undefined, 
-                { delay: 10000 });
+                    }
+                `, 
+                { delay: 10000, delete: true });
             return false;
         }
 
@@ -618,7 +632,7 @@ Mention a role or redefine your search parameters.`);
                 || await createGuildIfNone(message);
 
             if (!guild) {
-                await dispatch(message, 'Error when setting roles,\
+                await confirm(message, 'failure', 'Error when setting roles,\
 guild not part of the current database.');
                 break;
             }
@@ -630,7 +644,7 @@ guild not part of the current database.');
             }
         }
 
-        await dispatch(message, 'Colours have been added (or regenerated)!');
+        await confirm(message, 'success');
         return true;
     }
 
@@ -656,7 +670,7 @@ guild not part of the current database.');
             || await createGuildIfNone(message);
 
         if (!colour) {
-            await dispatch(message, 'No colour was specified');
+            await confirm(message, 'failure', 'No colour was specified');
             return false;
         }
 
@@ -698,7 +712,11 @@ guild not part of the current database.');
             .getOne();
 
         if (!colour) {
-            dispatch(message, 'Colour was not found, check your name with the colourlist.');
+            confirm(
+                message, 
+                'failure', 
+                'Colour was not found, check your name with the colourlist.',
+            );
             return false;
         }
 
@@ -709,7 +727,7 @@ guild not part of the current database.');
 
         await colourRepo.remove(colour);
         this.updateOrListColours(message);
-        dispatch(message, 'Entity deleted.');
+        confirm(message, 'success');
         return true;
     }
 }

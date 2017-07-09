@@ -8,7 +8,7 @@ import {
 import { Guild } from './database/guild/model';
 import { Connection, getConnectionManager} from 'typeorm';
 import { createGuildIfNone } from './database/guild/actions';
-import { dispatch } from './dispatch';
+import { confirm } from './emojis';
 
 export default
 class ChannelLocker {
@@ -52,7 +52,7 @@ class ChannelLocker {
             || await createGuildIfNone(message);
 
         if (!guild) {
-            dispatch(message, 'Error when finding guild.');
+            confirm(message, 'failure', 'Error when finding guild.');
             return false;
         }
 
@@ -74,7 +74,11 @@ class ChannelLocker {
             || await createGuildIfNone(message);
 
         if (!guild) {
-            dispatch(message, 'Error when getting guild, please contact your bot maintainer');
+            confirm(
+                message, 
+                'failure', 
+                'Error when getting guild, please contact your bot maintainer',
+            );
             return false;
         }
 
@@ -85,7 +89,11 @@ class ChannelLocker {
         } else {
             const channel = message.guild.channels.find('name', parameters.named.channel);
             if (!channel) {
-                dispatch(message, 'No channel found with the name' + parameters.named.channel);
+                confirm(
+                    message,
+                    'failure',
+                    'No channel found with the name' + parameters.named.channel,
+                );
                 return false;
             }
 
@@ -93,7 +101,7 @@ class ChannelLocker {
         }
 
         await guildRepo.persist(guild);        
-        dispatch(message, 'Channel has sucessfully been set.');
+        confirm(message, 'success');
         return true;
     }
 }

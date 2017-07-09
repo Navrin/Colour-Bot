@@ -10,7 +10,7 @@ type CreateUserFunc = (
         guild: Guild,
         connection: Connection,
         colour: Colour,
-    ) => Promise<User>;
+    ) => Promise<User | undefined>;
 
 const createUserIfNone: CreateUserFunc = async (discordUser, guild, connection, colour) => {
     try {
@@ -93,7 +93,7 @@ const setColourToUser = async (
         }
         try {
             message.guild.member(message.author).addRole(nextColour);
-            dispatch(message, `Your colour has been set!`);
+            dispatch(message, `Your colour has been set!`, undefined, { delay: 1000 });
         } catch (e) {
             dispatch(message, `Error setting colour: ${e}`);
         }

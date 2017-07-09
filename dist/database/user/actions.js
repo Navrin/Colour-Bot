@@ -74,7 +74,7 @@ const setColourToUser = (newColour, connection, user, guild, message) => __await
         }
         try {
             message.guild.member(message.author).addRole(nextColour);
-            dispatch_1.dispatch(message, `Your colour has been set!`);
+            dispatch_1.dispatch(message, `Your colour has been set!`, undefined, { delay: 1000 });
         }
         catch (e) {
             dispatch_1.dispatch(message, `Error setting colour: ${e}`);

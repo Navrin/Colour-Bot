@@ -12,7 +12,7 @@ const simple_discordjs_1 = require("simple-discordjs");
 const model_1 = require("./database/guild/model");
 const typeorm_1 = require("typeorm");
 const actions_1 = require("./database/guild/actions");
-const dispatch_1 = require("./dispatch");
+const emojis_1 = require("./emojis");
 class ChannelLocker {
     constructor() {
         this.getSetChannelLock = () => {
@@ -43,7 +43,7 @@ class ChannelLocker {
             const guild = (yield guildRepo.findOneById(message.guild.id))
                 || (yield actions_1.createGuildIfNone(message));
             if (!guild) {
-                dispatch_1.dispatch(message, 'Error when finding guild.');
+                emojis_1.confirm(message, 'failure', 'Error when finding guild.');
                 return false;
             }
             if (guild.channel === message.channel.id) {
@@ -56,7 +56,7 @@ class ChannelLocker {
             const guild = (yield guildRepo.findOneById(message.guild.id))
                 || (yield actions_1.createGuildIfNone(message));
             if (!guild) {
-                dispatch_1.dispatch(message, 'Error when getting guild, please contact your bot maintainer');
+                emojis_1.confirm(message, 'failure', 'Error when getting guild, please contact your bot maintainer');
                 return false;
             }
             if (message.mentions.channels.first()) {
@@ -66,13 +66,13 @@ class ChannelLocker {
             else {
                 const channel = message.guild.channels.find('name', parameters.named.channel);
                 if (!channel) {
-                    dispatch_1.dispatch(message, 'No channel found with the name' + parameters.named.channel);
+                    emojis_1.confirm(message, 'failure', 'No channel found with the name' + parameters.named.channel);
                     return false;
                 }
                 guild.channel = channel.id;
             }
             yield guildRepo.persist(guild);
-            dispatch_1.dispatch(message, 'Channel has sucessfully been set.');
+            emojis_1.confirm(message, 'success');
             return true;
         });
         this.connection = typeorm_1.getConnectionManager().get();

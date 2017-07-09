@@ -18,7 +18,7 @@ const model_3 = require("./database/user/model");
 const actions_3 = require("./database/user/actions");
 const yaml = require("js-yaml");
 const common_tags_1 = require("common-tags");
-const dispatch_1 = require("./dispatch");
+const emojis_1 = require("./emojis");
 const webshot = require('webshot');
 const createShot = (html, file, settings) => {
     return new Promise((res, rej) => {
@@ -95,7 +95,9 @@ and if more than one role is found, specify role name further.',
                         const res = new RegExp(`(.\s?)+`).exec(message.content);
                         if (res && !message.content.startsWith(prefix)) {
                             yield this
-                                .getColour(message, options, Object.assign({}, params, { named: Object.assign({}, params.named, { colour: res[0] }) }), client, self);
+                                .getColour(message, options, Object.assign({}, params, { named: {
+                                    colour: res[0],
+                                } }), client, self);
                         }
                         return false;
                     }),
@@ -207,18 +209,22 @@ automatically updated',
                 .getOne();
             const guild = yield guildRepo.findOneById(message.guild.id);
             if (guild == null) {
-                yield dispatch_1.dispatch(message, 'Guild Error.');
+                yield emojis_1.confirm(message, 'failure', 'Guild Error.');
                 return false;
             }
             if (colour == null) {
                 if (!silent) {
-                    yield dispatch_1.dispatch(message, 'Colour was not found. Check your spelling \
+                    yield emojis_1.confirm(message, 'failure', 'Colour was not found. Check your spelling \
 of the colour, else ask an admin to add the colour.');
                 }
                 return false;
             }
             const userEntitiy = (yield actions_3.findUser(message.author.id, guild, this.connection))
                 || (yield actions_3.createUserIfNone(message.author, guild, this.connection, colour));
+            if (userEntitiy === undefined) {
+                yield emojis_1.confirm(message, 'failure', 'Error when creating user.');
+                return;
+            }
             const user = yield userRepo
                 .createQueryBuilder('user')
                 .innerJoin('user.guild', 'guild', 'user.guild = guild.id')
@@ -248,7 +254,7 @@ of the colour, else ask an admin to add the colour.');
             const colourRepo = yield this.connection.getRepository(model_2.Colour);
             const roleID = yield this.findRole(message, parameters.named.role);
             if (!roleID) {
-                yield dispatch_1.dispatch(message, `No usable roles could be found! \
+                yield emojis_1.confirm(message, 'failure', `No usable roles could be found! \
 Mention a role or redefine your search parameters.`);
                 return false;
             }
@@ -286,7 +292,7 @@ Mention a role or redefine your search parameters.`);
                 const guild = (yield guildRepo.findOneById(discordGuild.id))
                     || (yield actions_2.createGuildIfNone(message));
                 if (!guild) {
-                    yield dispatch_1.dispatch(message, 'Error when setting roles,\
+                    yield emojis_1.confirm(message, 'failure', 'Error when setting roles,\
 guild not part of the current database.');
                     break;
                 }
@@ -297,7 +303,7 @@ guild not part of the current database.');
                     break;
                 }
             }
-            yield dispatch_1.dispatch(message, 'Colours have been added (or regenerated)!');
+            yield emojis_1.confirm(message, 'success');
             return true;
         });
         /**
@@ -315,7 +321,7 @@ guild not part of the current database.');
             const guild = (yield guildRepo.findOneById(message.guild.id))
                 || (yield actions_2.createGuildIfNone(message));
             if (!colour) {
-                yield dispatch_1.dispatch(message, 'No colour was specified');
+                yield emojis_1.confirm(message, 'failure', 'No colour was specified');
                 return false;
             }
             const colourCode = colour[0];
@@ -344,7 +350,7 @@ guild not part of the current database.');
                 .andWhere('colour.name LIKE :colourName', { colourName: params.named.colourName })
                 .getOne();
             if (!colour) {
-                dispatch_1.dispatch(message, 'Colour was not found, check your name with the colourlist.');
+                emojis_1.confirm(message, 'failure', 'Colour was not found, check your name with the colourlist.');
                 return false;
             }
             const role = yield message.guild.roles.find('id', colour.roleID);
@@ -353,7 +359,7 @@ guild not part of the current database.');
             }
             yield colourRepo.remove(colour);
             this.updateOrListColours(message);
-            dispatch_1.dispatch(message, 'Entity deleted.');
+            emojis_1.confirm(message, 'success');
             return true;
         });
         this.connection = typeorm_1.getConnectionManager().get();
@@ -365,7 +371,7 @@ guild not part of the current database.');
                 (yield actions_2.createGuildIfNone(message));
             if (guild.listmessage) {
                 if (!guild.channel) {
-                    message.channel.send('use setchannel to create a colour channel.');
+                    emojis_1.confirm(message, 'failure', 'use setchannel to create a colour channel.');
                     return false;
                 }
                 const channel = message
@@ -373,12 +379,13 @@ guild not part of the current database.');
                     .channels
                     .find('id', guild.channel);
                 if (!channel) {
-                    message.channel.send('use setchannel to create a colour channel.');
+                    emojis_1.confirm(message, 'failure', 'use setchannel to create a colour channel.');
                     return false;
                 }
                 try {
                     const msg = yield channel.fetchMessage(guild.listmessage);
                     this.syncColourList(msg);
+                    emojis_1.confirm(message, 'success');
                     return true;
                 }
                 catch (e) {
@@ -405,6 +412,7 @@ channel history to keep the message at the top.`);
             guildRepo.persist(guild);
             yield sleep(7000);
             yield this.syncColourList(singleMsg);
+            emojis_1.confirm(message, 'success');
             this.singletonInProgress = false;
         });
     }
@@ -499,7 +507,7 @@ channel history to keep the message at the top.`);
             const newMessage = (Array.isArray(newMsgResolve)) ? newMsgResolve[0] : newMsgResolve;
             guild.listmessage = newMessage.id;
             guildRepo.persist(guild);
-            yield message.delete();
+            message.delete();
         });
     }
     /**
@@ -527,11 +535,11 @@ channel history to keep the message at the top.`);
             if (colour === undefined) {
                 const newColour = yield actions_1.createNewColour(message, colourName, roleID);
                 if (!newColour) {
-                    dispatch_1.dispatch(message, `Colour wasn't created. Aborting function...`);
+                    emojis_1.confirm(message, 'failure', 'Failure setting colour!');
                     throw new Error('Colour failure!');
                 }
                 if (!silent) {
-                    dispatch_1.dispatch(message, 'Colour has successfully been added to the list!');
+                    emojis_1.confirm(message, 'success');
                 }
                 if (!noListUpdate) {
                     this.updateOrListColours(message);
@@ -544,7 +552,7 @@ channel history to keep the message at the top.`);
                 yield colourRepo.persist(colour);
                 yield guildRepo.persist(guild);
                 if (!silent) {
-                    dispatch_1.dispatch(message, `Colour role has successfully been updated!`);
+                    emojis_1.confirm(message, 'success');
                 }
                 if (!noListUpdate) {
                     this.updateOrListColours(message);
@@ -552,7 +560,7 @@ channel history to keep the message at the top.`);
                 return true;
             }
             catch (e) {
-                dispatch_1.dispatch(message, `Error when updating colour: ${e.toString()}`);
+                emojis_1.confirm(message, 'failure', `Error when updating colour: ${e.toString()}`);
                 throw new Error('Colour failure!');
             }
         });
@@ -575,11 +583,12 @@ channel history to keep the message at the top.`);
             }
             const search = message.guild.roles.filter(roleObject => roleObject.name.includes(role));
             if (search.size > 1) {
-                yield dispatch_1.dispatch(message, common_tags_1.stripIndents `Multiple results found for the search ${role}!
-            Expected one role, found: 
+                yield emojis_1.confirm(message, 'failure', common_tags_1.stripIndents `Multiple results found for the search ${role}!
+                Expected one role, found: 
                     ${search
                     .map(roleOjb => `Rolename: ${roleOjb.name.replace('@', '')}`)
-                    .join('\n')}`, undefined, { delay: 10000 });
+                    .join('\n')}
+                `, { delay: 10000, delete: true });
                 return false;
             }
             return search.firstKey();

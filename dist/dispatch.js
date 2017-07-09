@@ -10,7 +10,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 const dispatch = (message, content, messageOptions, options) => __awaiter(this, void 0, void 0, function* () {
     const opts = (options != null)
-        ? Object.assign({ edit: false, delay: 1000, delete: true }, options) : { edit: false, delay: 1000, delete: true };
+        ? Object.assign({ edit: false, delay: 3000, delete: true }, options) : { edit: false, delay: 3000, delete: true };
     if (opts.edit) {
         const msg = yield message.edit(content, messageOptions);
         if (opts.delete) {
