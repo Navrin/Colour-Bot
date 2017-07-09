@@ -572,11 +572,11 @@ channel history to keep the message at the top.`);
                     return false;
                 }
                 try {
-                    message.guild.member(message.author).addRole(nextColour);
+                    yield message.guild.member(message.author).addRole(nextColour);
                     emojis_1.confirm(message, 'success', undefined, { delay: 1000, delete: true });
                 }
                 catch (e) {
-                    emojis_1.confirm(message, 'failure', `Error setting colour: ${e}`);
+                    emojis_1.confirm(message, 'failure', `Error setting colour: ${e}`, { delay: 3000, delete: true });
                 }
                 return true;
             }

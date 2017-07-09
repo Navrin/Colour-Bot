@@ -11,9 +11,22 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const typeorm_1 = require("typeorm");
 const model_1 = require("./model");
 exports.createGuildIfNone = (message) => __awaiter(this, void 0, void 0, function* () {
-    const guild = yield makeGuildFromId(message.id);
-    message.react('☑');
-    return yield guild;
+    try {
+        const guild = yield makeGuildFromId(message.id);
+        message.react('☑');
+        return yield guild;
+    }
+    catch (e) {
+        message.channel.send('Woah. Error creating this guild, detonating the existing? guild.');
+        const guildRepo = yield typeorm_1.getConnectionManager()
+            .get()
+            .getRepository(model_1.Guild);
+        const maybeGuild = yield guildRepo.findOneById(message.guild.id);
+        if (maybeGuild) {
+            yield guildRepo.remove(maybeGuild);
+        }
+        return makeGuildFromId(message.guild.id);
+    }
 });
 const makeGuildFromId = (id) => __awaiter(this, void 0, void 0, function* () {
     const guildRepo = yield typeorm_1.getConnectionManager()
@@ -26,5 +39,11 @@ const makeGuildFromId = (id) => __awaiter(this, void 0, void 0, function* () {
     return yield guild;
 });
 exports.listenForGuilds = (guild) => __awaiter(this, void 0, void 0, function* () {
-    makeGuildFromId(guild.id);
+    const maybeGuild = yield typeorm_1.getConnectionManager()
+        .get()
+        .getRepository(model_1.Guild)
+        .findOneById(guild.id);
+    if (maybeGuild === undefined) {
+        makeGuildFromId(guild.id);
+    }
 });
