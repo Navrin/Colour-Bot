@@ -47,66 +47,7 @@ const findUser = async (user: string, guild: Guild, connection: Connection) => {
     return userEntity;
 };
 
-
-const setColourToUser = async (
-        newColour: Colour, 
-        connection: Connection, 
-        user: User, 
-        guild: Guild, 
-        message: Discord.Message,
-    ) => {
-    try {
-        const userRepo = await connection.getRepository(User);
-        const colourRepo = await connection.getRepository(Colour);
-        const guildRepo = await connection.getRepository(Guild);
-
-        const colourList = await colourRepo.find();
-
-        if (user.colour !== undefined) {
-            const oldColour = message.guild.roles.get(user.colour.roleID);
-
-            if (oldColour === undefined) {
-                dispatch(message, `Error setting colour!`);
-                return false;
-            }
-            await message.guild.member(message.author).removeRole(oldColour);
-        }
-        const userMember = message.guild.member(message.author.id);
-        const possibleColours = colourList
-            .map(colour => userMember.roles.find('name', colour.name))
-            .filter(id => id);
-        
-        await userMember.removeRoles(possibleColours);
-
-        const updatedUser = await userRepo.persist(user);
-
-        user.colour = newColour;
-
-        await colourRepo.persist(newColour);
-        await userRepo.persist(user);
-        await guildRepo.persist(guild);
-
-        const nextColour = message.guild.roles.get(newColour.roleID.toString());
-        if (nextColour === undefined) {
-            dispatch(message, `Error getting colour!`);
-            return false;
-        }
-        try {
-            message.guild.member(message.author).addRole(nextColour);
-            dispatch(message, `Your colour has been set!`, undefined, { delay: 1000 });
-        } catch (e) {
-            dispatch(message, `Error setting colour: ${e}`);
-        }
-
-        return true;
-    } catch (e) {
-        dispatch(message, `error: ${e}`);
-        return false;
-    }
-};
-
 export {
     createUserIfNone,
-    setColourToUser,
     findUser,
 };

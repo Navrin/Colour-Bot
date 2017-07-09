@@ -7,7 +7,7 @@ import { Guild } from './database/guild/model';
 import { Colour } from './database/colour/model';
 import { createGuildIfNone } from './database/guild/actions';
 import { User } from './database/user/model';
-import { createUserIfNone, setColourToUser, findUser } from './database/user/actions';
+import { createUserIfNone, findUser } from './database/user/actions';
 import * as yaml from 'js-yaml';
 import * as Discord from 'discord.js';
 import { stripIndents, oneLineTrim } from 'common-tags';
@@ -236,7 +236,7 @@ automatically updated',
                 .channels
                 .find('id', guild.channel);
 
-            if (!channel) {
+            if (!channel || channel instanceof Discord.VoiceChannel) {
                 confirm(message, 'failure', 'use setchannel to create a colour channel.');
                 return false;
             }
@@ -453,7 +453,72 @@ of the colour, else ask an admin to add the colour.');
             return false;
         }
 
-        return await setColourToUser(colour, this.connection, user, guild, message);
+        return await this.setColourToUser(colour, this.connection, user, guild, message);
+    }
+
+    /**
+     * Persist a colour to the user entity for the guild.
+     * @param newColour 
+     * @param connection 
+     * @param user 
+     * @param guild 
+     * @param message 
+     */
+    async setColourToUser(
+        newColour: Colour, 
+        connection: Connection, 
+        user: User, 
+        guild: Guild, 
+        message: Discord.Message,
+    ) {
+        try {
+            const userRepo = await connection.getRepository(User);
+            const colourRepo = await connection.getRepository(Colour);
+            const guildRepo = await connection.getRepository(Guild);
+
+            const colourList = await colourRepo.find();
+
+            if (user.colour !== undefined) {
+                const oldColour = message.guild.roles.get(user.colour.roleID);
+
+                if (oldColour === undefined) {
+                    confirm(message, 'failure', 'Error setting colour!');
+                    return false;
+                }
+                await message.guild.member(message.author).removeRole(oldColour);
+            }
+            const userMember = message.guild.member(message.author.id);
+            const possibleColours = colourList
+                .map(colour => userMember.roles.find('name', colour.name))
+                .filter(id => id);
+            
+            await userMember.removeRoles(possibleColours);
+
+            const updatedUser = await userRepo.persist(user);
+
+            user.colour = newColour;
+
+            await colourRepo.persist(newColour);
+            await userRepo.persist(user);
+            await guildRepo.persist(guild);
+
+            const nextColour = message.guild.roles.get(newColour.roleID.toString());
+            if (nextColour === undefined) {
+                confirm(message, 'failure', 'Error getting colour!');
+                return false;
+            }
+            try {
+                message.guild.member(message.author).addRole(nextColour);
+                confirm(message, 'success', undefined, { delay: 1000, delete: true });
+            } catch (e) {
+                confirm(message, 'failure', `Error setting colour: ${e}`);
+            }
+
+            return true;
+        } catch (e) {
+            confirm(message, 'failure',  `error: ${e}`);
+            return false;
+        }
     }
 
     /**
