@@ -5,6 +5,7 @@ import Colourizer from './colourizer';
 const settings: {
     token?: string,
     superuser?: string,
+    prefix: string,
 } = require('../botConfig.json');
 import { getInviteLinkDescriber } from './utils';
 import './database/init';
@@ -56,7 +57,7 @@ or create new colours with \`c.quickcolour colour_name hex_code\`
 `);
 });
 
-const prefix = 'ctmp.';
+const prefix = settings.prefix || process.env.COLOUR_BOT_PREFIX || 'c.';
 
 new Commands(prefix, client)
     .use(auth.authenticate)
