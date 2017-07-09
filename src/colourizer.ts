@@ -142,7 +142,8 @@ and if more than one role is found, specify role name further.',
         {
             command: {
                 action: async (message, op, pr, cl, self) => {
-                    const regex = new RegExp(`${escapeStringRegexp(prefix)}(.+)`);
+                    const regex = 
+                        new RegExp(`${escapeStringRegexp(prefix)}([\\S]+)(\\s.+)?`);
                     const match = regex.exec(message.content);
                     if (match && match[1]) {
                         if (self.checkCommandExists(match[1])) {
@@ -152,14 +153,14 @@ and if more than one role is found, specify role name further.',
                             message, 
                             'failure', 
                             'Command does not exist!', 
-                            { delay: 1000, delete: true },
+                            { delay: 1500, delete: true },
                         );
                     }
                     return true;
                 },
                 names: ['clean'],
                 noPrefix: true,
-                pattern: new RegExp(`${escapeStringRegexp(prefix)}(.+)`),
+                pattern: new RegExp(`${escapeStringRegexp(prefix)}.+`),
             },
             custom: {
                 locked: true,
@@ -415,7 +416,10 @@ channel history to keep the message at the top.`,
         guild.listmessage = newMessage.id;
         guildRepo.persist(guild);
 
-        message.delete();
+        message.delete()
+            .catch((e) => {
+                // message was probably deleted by something else.
+            });
     }
 
     /**

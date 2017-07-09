@@ -59,7 +59,12 @@ or create new colours with \`c.quickcolour colour_name hex_code\`
 
 const prefix = settings.prefix || process.env.COLOUR_BOT_PREFIX || 'c.';
 
-new Commands(prefix, client)
+new Commands(prefix, client, {
+    deleteCommandMessage: false,
+    deleteMessageDelay: 2000,
+    botType: 'normal',
+    killErrorMessages: true,
+})
     .use(auth.authenticate)
     .use(locker.lock)
     .defineCommand(colourizer.guardChannel(prefix))
