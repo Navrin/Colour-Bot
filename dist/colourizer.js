@@ -115,19 +115,19 @@ and if more than one role is found, specify role name further.',
         this.guardChannel = prefix => ({
             command: {
                 action: (message, op, pr, cl, self) => __awaiter(this, void 0, void 0, function* () {
-                    const regex = new RegExp(`${escapeStringRegexp(prefix)}(.+)`);
+                    const regex = new RegExp(`${escapeStringRegexp(prefix)}([\\S]+)(\\s.+)?`);
                     const match = regex.exec(message.content);
                     if (match && match[1]) {
                         if (self.checkCommandExists(match[1])) {
                             return true;
                         }
-                        emojis_1.confirm(message, 'failure', 'Command does not exist!', { delay: 1000, delete: true });
+                        emojis_1.confirm(message, 'failure', 'Command does not exist!', { delay: 1500, delete: true });
                     }
                     return true;
                 }),
                 names: ['clean'],
                 noPrefix: true,
-                pattern: new RegExp(`${escapeStringRegexp(prefix)}(.+)`),
+                pattern: new RegExp(`${escapeStringRegexp(prefix)}.+`),
             },
             custom: {
                 locked: true,
@@ -530,7 +530,10 @@ channel history to keep the message at the top.`);
             const newMessage = (Array.isArray(newMsgResolve)) ? newMsgResolve[0] : newMsgResolve;
             guild.listmessage = newMessage.id;
             guildRepo.persist(guild);
-            message.delete();
+            message.delete()
+                .catch((e) => {
+                // message was probably deleted by something else.
+            });
         });
     }
     /**
