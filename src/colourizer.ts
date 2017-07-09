@@ -14,6 +14,8 @@ import { stripIndents, oneLineTrim } from 'common-tags';
 import { dispatch } from './dispatch';
 import { JSDOM } from 'jsdom';
 import { confirm } from './emojis';
+import escapeStringRegexp = require('escape-string-regexp');
+
 
 const webshot = require('webshot');
 const createShot = (html: string, file: string, settings: any) => {
@@ -135,6 +137,34 @@ and if more than one role is found, specify role name further.',
             },
         };
     }
+
+    public guardChannel: (prefix: string) => CommandDefinition = prefix => (
+        {
+            command: {
+                action: async (message, op, pr, cl, self) => {
+                    const regex = new RegExp(`${escapeStringRegexp(prefix)}(.+)`);
+                    const match = regex.exec(message.content);
+                    if (match && match[1]) {
+                        if (self.checkCommandExists(match[1])) {
+                            return true;
+                        }
+                        confirm(
+                            message, 
+                            'failure', 
+                            'Command does not exist!', 
+                            { delay: 1000, delete: true },
+                        );
+                    }
+                    return true;
+                },
+                names: ['clean'],
+                noPrefix: true,
+                pattern: new RegExp(`${escapeStringRegexp(prefix)}(.+)`),
+            },
+            custom: {
+                locked: true,
+            },
+    })
 
     public getQuickColourCommand: () => CommandDefinition = () => {
         return {

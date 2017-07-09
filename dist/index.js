@@ -51,10 +51,11 @@ or create new colours with \`c.quickcolour colour_name hex_code\`
 (use c.help to see all of the commands.)
 `);
 });
-const prefix = 'c.';
+const prefix = 'ctmp.';
 new simple_discordjs_1.default(prefix, client)
     .use(auth.authenticate)
     .use(locker.lock)
+    .defineCommand(colourizer.guardChannel(prefix))
     .defineCommand(utils_1.getInviteLinkDescriber())
     .defineCommand(locker.getSetChannelLock())
     .defineCommand(auth.getCommand())

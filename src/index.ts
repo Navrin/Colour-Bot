@@ -56,11 +56,12 @@ or create new colours with \`c.quickcolour colour_name hex_code\`
 `);
 });
 
-const prefix = 'c.';
+const prefix = 'ctmp.';
 
 new Commands(prefix, client)
     .use(auth.authenticate)
     .use(locker.lock)
+    .defineCommand(colourizer.guardChannel(prefix))
     .defineCommand(getInviteLinkDescriber())
     .defineCommand(locker.getSetChannelLock())
     .defineCommand(auth.getCommand())

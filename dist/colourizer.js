@@ -20,6 +20,7 @@ const yaml = require("js-yaml");
 const Discord = require("discord.js");
 const common_tags_1 = require("common-tags");
 const emojis_1 = require("./emojis");
+const escapeStringRegexp = require("escape-string-regexp");
 const webshot = require('webshot');
 const createShot = (html, file, settings) => {
     return new Promise((res, rej) => {
@@ -111,6 +112,27 @@ and if more than one role is found, specify role name further.',
                 },
             };
         };
+        this.guardChannel = prefix => ({
+            command: {
+                action: (message, op, pr, cl, self) => __awaiter(this, void 0, void 0, function* () {
+                    const regex = new RegExp(`${escapeStringRegexp(prefix)}(.+)`);
+                    const match = regex.exec(message.content);
+                    if (match && match[1]) {
+                        if (self.checkCommandExists(match[1])) {
+                            return true;
+                        }
+                        emojis_1.confirm(message, 'failure', 'Command does not exist!', { delay: 1000, delete: true });
+                    }
+                    return true;
+                }),
+                names: ['clean'],
+                noPrefix: true,
+                pattern: new RegExp(`${escapeStringRegexp(prefix)}(.+)`),
+            },
+            custom: {
+                locked: true,
+            },
+        });
         this.getQuickColourCommand = () => {
             return {
                 command: {
