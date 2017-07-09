@@ -51,7 +51,7 @@ or create new colours with \`c.quickcolour colour_name hex_code\`
 (use c.help to see all of the commands.)
 `);
 });
-const prefix = 'ctemp.';
+const prefix = 'c.';
 new simple_discordjs_1.default(prefix, client)
     .use(auth.authenticate)
     .use(locker.lock)

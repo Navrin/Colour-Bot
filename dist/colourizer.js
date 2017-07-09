@@ -17,6 +17,7 @@ const actions_2 = require("./database/guild/actions");
 const model_3 = require("./database/user/model");
 const actions_3 = require("./database/user/actions");
 const yaml = require("js-yaml");
+const Discord = require("discord.js");
 const common_tags_1 = require("common-tags");
 const emojis_1 = require("./emojis");
 const webshot = require('webshot');
@@ -235,7 +236,7 @@ of the colour, else ask an admin to add the colour.');
                 message.channel.send('User is not in schema: ', user);
                 return false;
             }
-            return yield actions_3.setColourToUser(colour, this.connection, user, guild, message);
+            return yield this.setColourToUser(colour, this.connection, user, guild, message);
         });
         /**
          * Sets a colour to the guild schema, only to be used by admins/mods
@@ -378,7 +379,7 @@ guild not part of the current database.');
                     .guild
                     .channels
                     .find('id', guild.channel);
-                if (!channel) {
+                if (!channel || channel instanceof Discord.VoiceChannel) {
                     emojis_1.confirm(message, 'failure', 'use setchannel to create a colour channel.');
                     return false;
                 }
@@ -508,6 +509,59 @@ channel history to keep the message at the top.`);
             guild.listmessage = newMessage.id;
             guildRepo.persist(guild);
             message.delete();
+        });
+    }
+    /**
+     * Persist a colour to the user entity for the guild.
+     * @param newColour
+     * @param connection
+     * @param user
+     * @param guild
+     * @param message
+     */
+    setColourToUser(newColour, connection, user, guild, message) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const userRepo = yield connection.getRepository(model_3.User);
+                const colourRepo = yield connection.getRepository(model_2.Colour);
+                const guildRepo = yield connection.getRepository(model_1.Guild);
+                const colourList = yield colourRepo.find();
+                if (user.colour !== undefined) {
+                    const oldColour = message.guild.roles.get(user.colour.roleID);
+                    if (oldColour === undefined) {
+                        emojis_1.confirm(message, 'failure', 'Error setting colour!');
+                        return false;
+                    }
+                    yield message.guild.member(message.author).removeRole(oldColour);
+                }
+                const userMember = message.guild.member(message.author.id);
+                const possibleColours = colourList
+                    .map(colour => userMember.roles.find('name', colour.name))
+                    .filter(id => id);
+                yield userMember.removeRoles(possibleColours);
+                const updatedUser = yield userRepo.persist(user);
+                user.colour = newColour;
+                yield colourRepo.persist(newColour);
+                yield userRepo.persist(user);
+                yield guildRepo.persist(guild);
+                const nextColour = message.guild.roles.get(newColour.roleID.toString());
+                if (nextColour === undefined) {
+                    emojis_1.confirm(message, 'failure', 'Error getting colour!');
+                    return false;
+                }
+                try {
+                    message.guild.member(message.author).addRole(nextColour);
+                    emojis_1.confirm(message, 'success', undefined, { delay: 1000, delete: true });
+                }
+                catch (e) {
+                    emojis_1.confirm(message, 'failure', `Error setting colour: ${e}`);
+                }
+                return true;
+            }
+            catch (e) {
+                emojis_1.confirm(message, 'failure', `error: ${e}`);
+                return false;
+            }
         });
     }
     /**
