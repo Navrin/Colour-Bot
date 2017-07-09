@@ -538,10 +538,15 @@ of the colour, else ask an admin to add the colour.');
                 return false;
             }
             try {
-                message.guild.member(message.author).addRole(nextColour);
+                await message.guild.member(message.author).addRole(nextColour);
                 confirm(message, 'success', undefined, { delay: 1000, delete: true });
             } catch (e) {
-                confirm(message, 'failure', `Error setting colour: ${e}`);
+                confirm(
+                    message, 
+                    'failure', 
+                    `Error setting colour: ${e}`, 
+                    { delay: 3000, delete: true },
+                );
             }
 
             return true;
