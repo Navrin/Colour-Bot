@@ -56,7 +56,7 @@ or create new colours with \`c.quickcolour colour_name hex_code\`
 `);
 });
 
-const prefix = 'ct.';
+const prefix = 'c.';
 
 new Commands(prefix, client)
     .use(auth.authenticate)
