@@ -19,7 +19,8 @@ const actions_3 = require("./database/user/actions");
 const yaml = require("js-yaml");
 const Discord = require("discord.js");
 const common_tags_1 = require("common-tags");
-const emojis_1 = require("./emojis");
+const dispatch_1 = require("./dispatch");
+const confirmer_1 = require("./confirmer");
 const escapeStringRegexp = require("escape-string-regexp");
 const webshot = require('webshot');
 const createShot = (html, file, settings) => {
@@ -121,7 +122,7 @@ and if more than one role is found, specify role name further.',
                         if (self.checkCommandExists(match[1])) {
                             return true;
                         }
-                        emojis_1.confirm(message, 'failure', 'Command does not exist!', { delay: 1500, delete: true });
+                        confirmer_1.confirm(message, 'failure', 'Command does not exist!', { delay: 1500, delete: true });
                     }
                     return true;
                 }),
@@ -191,9 +192,56 @@ automatically updated',
                 },
             };
         };
+        this.getMessageCommand = () => ({
+            command: {
+                action: this.createChannelMessage,
+                names: ['message', 'pin', 'msg'],
+            },
+            authentication: simple_discordjs_1.RoleTypes.ADMIN,
+            description: {
+                message: 'Create a message for the colour channel (ADMIN ONLY)',
+                example: '{{{prefix}}}msg',
+            },
+        });
+        this.getInitiateCommand = () => ({
+            command: {
+                action: this.initiateNewServer,
+                names: ['init', 'initiate', 'newserver'],
+            },
+            authentication: simple_discordjs_1.RoleTypes.OWNER,
+            description: {
+                message: 'Initiate a new server, do this in a private channel! (OWNER ONLY)',
+                example: '{{{prefix}}}init',
+            },
+        });
         /*********************
          * COMMAND FUNCTIONS *
          *********************/
+        this.createChannelMessage = (message) => __awaiter(this, void 0, void 0, function* () {
+            const guildRepo = yield this.connection.getRepository(model_1.Guild);
+            const guild = yield guildRepo.findOneById(message.guild.id);
+            if (guild && guild.channel) {
+                const channel = message
+                    .guild
+                    .channels
+                    .find('id', guild.channel);
+                if (channel instanceof Discord.TextChannel) {
+                    channel.send(`
+Request a colour by typing out one of the following colours below. 
+
+__**Only type just the colour, no messages before or after it.**__
+
+__Don't try to talk in this channel__
+your message will be automatically deleted by the bot to keep this channel clean.
+`);
+                    return true;
+                }
+                dispatch_1.dispatch(message, 'failure', 'Channel not found!');
+                return false;
+            }
+            dispatch_1.dispatch(message, 'failure', 'Set a colour channel first!');
+            return false;
+        });
         /**
          * Create a list of colours currently in the guild schema
          * // TODO Create a singleton message for each guild that can be pinned
@@ -232,12 +280,12 @@ automatically updated',
                 .getOne();
             const guild = yield guildRepo.findOneById(message.guild.id);
             if (guild == null) {
-                yield emojis_1.confirm(message, 'failure', 'Guild Error.');
+                yield confirmer_1.confirm(message, 'failure', 'Guild Error.');
                 return false;
             }
             if (colour == null) {
                 if (!silent) {
-                    yield emojis_1.confirm(message, 'failure', 'Colour was not found. Check your spelling \
+                    yield confirmer_1.confirm(message, 'failure', 'Colour was not found. Check your spelling \
 of the colour, else ask an admin to add the colour.');
                 }
                 return false;
@@ -245,7 +293,7 @@ of the colour, else ask an admin to add the colour.');
             const userEntitiy = (yield actions_3.findUser(message.author.id, guild, this.connection))
                 || (yield actions_3.createUserIfNone(message.author, guild, this.connection, colour));
             if (userEntitiy === undefined) {
-                yield emojis_1.confirm(message, 'failure', 'Error when creating user.');
+                yield confirmer_1.confirm(message, 'failure', 'Error when creating user.');
                 return;
             }
             const user = yield userRepo
@@ -277,7 +325,7 @@ of the colour, else ask an admin to add the colour.');
             const colourRepo = yield this.connection.getRepository(model_2.Colour);
             const roleID = yield this.findRole(message, parameters.named.role);
             if (!roleID) {
-                yield emojis_1.confirm(message, 'failure', `No usable roles could be found! \
+                yield confirmer_1.confirm(message, 'failure', `No usable roles could be found! \
 Mention a role or redefine your search parameters.`);
                 return false;
             }
@@ -315,7 +363,7 @@ Mention a role or redefine your search parameters.`);
                 const guild = (yield guildRepo.findOneById(discordGuild.id))
                     || (yield actions_2.createGuildIfNone(message));
                 if (!guild) {
-                    yield emojis_1.confirm(message, 'failure', 'Error when setting roles,\
+                    yield confirmer_1.confirm(message, 'failure', 'Error when setting roles,\
 guild not part of the current database.');
                     break;
                 }
@@ -326,7 +374,7 @@ guild not part of the current database.');
                     break;
                 }
             }
-            yield emojis_1.confirm(message, 'success');
+            yield confirmer_1.confirm(message, 'success');
             return true;
         });
         /**
@@ -344,7 +392,7 @@ guild not part of the current database.');
             const guild = (yield guildRepo.findOneById(message.guild.id))
                 || (yield actions_2.createGuildIfNone(message));
             if (!colour) {
-                yield emojis_1.confirm(message, 'failure', 'No colour was specified');
+                yield confirmer_1.confirm(message, 'failure', 'No colour was specified');
                 return false;
             }
             const colourCode = colour[0];
@@ -373,7 +421,7 @@ guild not part of the current database.');
                 .andWhere('colour.name LIKE :colourName', { colourName: params.named.colourName })
                 .getOne();
             if (!colour) {
-                emojis_1.confirm(message, 'failure', 'Colour was not found, check your name with the colourlist.');
+                confirmer_1.confirm(message, 'failure', 'Colour was not found, check your name with the colourlist.');
                 return false;
             }
             const role = yield message.guild.roles.find('id', colour.roleID);
@@ -382,7 +430,93 @@ guild not part of the current database.');
             }
             yield colourRepo.remove(colour);
             this.updateOrListColours(message);
-            emojis_1.confirm(message, 'success');
+            confirmer_1.confirm(message, 'success');
+            return true;
+        });
+        this.initiateNewServer = (message, opts, params, client, self) => __awaiter(this, void 0, void 0, function* () {
+            const author = message.author;
+            const prefix = self.defaultPrefix.str;
+            const msgVec = yield message.channel.send(common_tags_1.stripIndents `Welcome to Colour Bot!
+            It is recommended to do this command in a mod channel.
+            Type \`y\` or \`n\` to confirm continue`);
+            const msg = Array.isArray(msgVec) ? msgVec[0] : msgVec;
+            const replyMessage = yield getNextReply(message, author);
+            if (replyMessage.content.startsWith('n') || !replyMessage.content.startsWith('y')) {
+                confirmer_1.confirm(message, 'failure', 'Command was killed by calle.');
+                msg.delete();
+                replyMessage.delete();
+                return;
+            }
+            replyMessage.delete();
+            msg.edit(`Step 1: set a colour channel with using ${prefix}setchannel #channel`);
+            const nextReply = yield getNextReply(message, author);
+            const chan = nextReply.mentions.channels.first();
+            if (!nextReply.content.includes('setchannel')) {
+                confirmer_1.confirm(message, 'failure', 'Failed to follow instructions!');
+                msg.delete();
+                nextReply.delete();
+                return;
+            }
+            msg.edit(`Step 2: add your mod group in with ${prefix}addrole admin @admins`);
+            const adminReply = yield getNextReply(message, author);
+            if (adminReply.mentions.roles.size <= 0
+                && !adminReply.content.includes('addrole')) {
+                confirmer_1.confirm(message, 'failure', 'Failed to follow instructions!');
+                msg.delete();
+                nextReply.delete();
+                return;
+            }
+            yield msg.delete();
+            yield adminReply.delete();
+            const nextVec = yield message.channel.send(`Would you like to generate a set of standard rainbow colours?  (\`y\` or \`n\`)`);
+            /* Why? the role command is noisy, and dumps 1 or two messages into the channel. */
+            const nextMsg = Array.isArray(nextVec) ? nextVec[0] : nextVec;
+            const generateReply = yield getNextReply(message, author);
+            if (generateReply.content.includes('y')) {
+                const genVec = yield message.channel.send('Generating...');
+                const genMsg = Array.isArray(genVec) ? genVec[0] : genVec;
+                /* Chill typescript, its fine, we only need a message object. */
+                this.generateStandardColours(genMsg);
+            }
+            generateReply.delete();
+            nextMsg.edit(`Would you like to make help message (highly recommended!) (\`y\` or \`n\`)`);
+            const helpReply = yield getNextReply(message, author);
+            if (helpReply.content.includes('y')) {
+                const helpVec = yield chan.send('Getting Help?');
+                const helpMsg = Array.isArray(helpVec) ? helpVec[0] : helpVec;
+                this.createChannelMessage(helpMsg);
+                helpMsg.delete()
+                    .catch(e => null);
+            }
+            helpReply.delete();
+            yield nextMsg.edit(`Would you like to create a colour list image? (\`y\` or \`n\`)`);
+            const listReply = yield getNextReply(message, author);
+            if (listReply.content.includes('y')) {
+                const listVec = yield chan.send('Generating List!');
+                const listMsg = Array.isArray(listVec) ? listVec[0] : listVec;
+                /* Again, take a chill pill ts */
+                yield this.listColours(listMsg);
+            }
+            listReply
+                .delete()
+                .catch(e => null);
+            // TODO: Create more colours with a c.cycle_existing
+            nextMsg.edit(common_tags_1.stripIndents `Alright, initiation procedures completed!
+            
+            To add existing roles to bot, use 
+            \`${prefix}setcolour colour_name role_name\`
+            
+            You can mention roles or just search by name.
+            However if there are mutliple results for a role, bot will not add it.
+            Make sure the role search result is unique.
+
+            To quickly add a new colour to the bot, use
+            \`${prefix}quickcolour colour_name colour_hex_code\`
+
+            It is recommended to pin this message for reference for other admins.
+            `);
+            confirmer_1.confirm(message, 'success')
+                .catch(e => null);
             return true;
         });
         this.connection = typeorm_1.getConnectionManager().get();
@@ -394,7 +528,7 @@ guild not part of the current database.');
                 (yield actions_2.createGuildIfNone(message));
             if (guild.listmessage) {
                 if (!guild.channel) {
-                    emojis_1.confirm(message, 'failure', 'use setchannel to create a colour channel.');
+                    confirmer_1.confirm(message, 'failure', 'use setchannel to create a colour channel.');
                     return false;
                 }
                 const channel = message
@@ -402,13 +536,13 @@ guild not part of the current database.');
                     .channels
                     .find('id', guild.channel);
                 if (!channel || channel instanceof Discord.VoiceChannel) {
-                    emojis_1.confirm(message, 'failure', 'use setchannel to create a colour channel.');
+                    confirmer_1.confirm(message, 'failure', 'use setchannel to create a colour channel.');
                     return false;
                 }
                 try {
                     const msg = yield channel.fetchMessage(guild.listmessage);
                     this.syncColourList(msg);
-                    emojis_1.confirm(message, 'success');
+                    confirmer_1.confirm(message, 'success');
                     return true;
                 }
                 catch (e) {
@@ -435,7 +569,7 @@ channel history to keep the message at the top.`);
             guildRepo.persist(guild);
             yield sleep(7000);
             yield this.syncColourList(singleMsg);
-            emojis_1.confirm(message, 'success');
+            confirmer_1.confirm(message, 'success');
             this.singletonInProgress = false;
         });
     }
@@ -554,7 +688,7 @@ channel history to keep the message at the top.`);
                 if (user.colour !== undefined) {
                     const oldColour = message.guild.roles.get(user.colour.roleID);
                     if (oldColour === undefined) {
-                        emojis_1.confirm(message, 'failure', 'Error setting colour!');
+                        confirmer_1.confirm(message, 'failure', 'Error setting colour!');
                         return false;
                     }
                     yield message.guild.member(message.author).removeRole(oldColour);
@@ -571,20 +705,20 @@ channel history to keep the message at the top.`);
                 yield guildRepo.persist(guild);
                 const nextColour = message.guild.roles.get(newColour.roleID.toString());
                 if (nextColour === undefined) {
-                    emojis_1.confirm(message, 'failure', 'Error getting colour!');
+                    confirmer_1.confirm(message, 'failure', 'Error getting colour!');
                     return false;
                 }
                 try {
                     yield message.guild.member(message.author).addRole(nextColour);
-                    emojis_1.confirm(message, 'success', undefined, { delay: 1000, delete: true });
+                    confirmer_1.confirm(message, 'success', undefined, { delay: 1000, delete: true });
                 }
                 catch (e) {
-                    emojis_1.confirm(message, 'failure', `Error setting colour: ${e}`, { delay: 3000, delete: true });
+                    confirmer_1.confirm(message, 'failure', `Error setting colour: ${e}`, { delay: 3000, delete: true });
                 }
                 return true;
             }
             catch (e) {
-                emojis_1.confirm(message, 'failure', `error: ${e}`);
+                confirmer_1.confirm(message, 'failure', `error: ${e}`);
                 return false;
             }
         });
@@ -614,11 +748,11 @@ channel history to keep the message at the top.`);
             if (colour === undefined) {
                 const newColour = yield actions_1.createNewColour(message, colourName, roleID);
                 if (!newColour) {
-                    emojis_1.confirm(message, 'failure', 'Failure setting colour!');
+                    confirmer_1.confirm(message, 'failure', 'Failure setting colour!');
                     throw new Error('Colour failure!');
                 }
                 if (!silent) {
-                    emojis_1.confirm(message, 'success');
+                    confirmer_1.confirm(message, 'success');
                 }
                 if (!noListUpdate) {
                     this.updateOrListColours(message);
@@ -631,7 +765,7 @@ channel history to keep the message at the top.`);
                 yield colourRepo.persist(colour);
                 yield guildRepo.persist(guild);
                 if (!silent) {
-                    emojis_1.confirm(message, 'success');
+                    confirmer_1.confirm(message, 'success');
                 }
                 if (!noListUpdate) {
                     this.updateOrListColours(message);
@@ -639,7 +773,7 @@ channel history to keep the message at the top.`);
                 return true;
             }
             catch (e) {
-                emojis_1.confirm(message, 'failure', `Error when updating colour: ${e.toString()}`);
+                confirmer_1.confirm(message, 'failure', `Error when updating colour: ${e.toString()}`);
                 throw new Error('Colour failure!');
             }
         });
@@ -662,7 +796,7 @@ channel history to keep the message at the top.`);
             }
             const search = message.guild.roles.filter(roleObject => roleObject.name.includes(role));
             if (search.size > 1) {
-                yield emojis_1.confirm(message, 'failure', common_tags_1.stripIndents `Multiple results found for the search ${role}!
+                yield confirmer_1.confirm(message, 'failure', common_tags_1.stripIndents `Multiple results found for the search ${role}!
                 Expected one role, found: 
                     ${search
                     .map(roleOjb => `Rolename: ${roleOjb.name.replace('@', '')}`)
@@ -675,3 +809,9 @@ channel history to keep the message at the top.`);
     }
 }
 exports.default = Colourizer;
+const getNextReply = (message, author) => __awaiter(this, void 0, void 0, function* () {
+    const reply = yield message.channel.awaitMessages(msg => msg.author.id === author.id, {
+        maxMatches: 1,
+    });
+    return reply.first();
+});

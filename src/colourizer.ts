@@ -13,7 +13,7 @@ import * as Discord from 'discord.js';
 import { stripIndents, oneLineTrim } from 'common-tags';
 import { dispatch } from './dispatch';
 import { JSDOM } from 'jsdom';
-import { confirm } from './emojis';
+import { confirm } from './confirmer';
 import escapeStringRegexp = require('escape-string-regexp');
 
 
@@ -113,18 +113,18 @@ and if more than one role is found, specify role name further.',
                     const res = new RegExp(`(.\s?)+`).exec(message.content);
                     if (res && !message.content.startsWith(prefix)) {
                         await this
-                                .getColour(
-                                    message,
-                                    options, 
-                                    {
-                                        ...params,
-                                        named: { 
-                                            colour: res[0],
-                                        },
-                                    },
-                                    client,
-                                    self,
-                                );
+                            .getColour(
+                            message,
+                            options,
+                            {
+                                ...params,
+                                named: {
+                                    colour: res[0],
+                                },
+                            },
+                            client,
+                            self,
+                        );
                     }
                     return false;
                 },
@@ -142,7 +142,7 @@ and if more than one role is found, specify role name further.',
         {
             command: {
                 action: async (message, op, pr, cl, self) => {
-                    const regex = 
+                    const regex =
                         new RegExp(`${escapeStringRegexp(prefix)}([\\S]+)(\\s.+)?`);
                     const match = regex.exec(message.content);
                     if (match && match[1]) {
@@ -150,9 +150,9 @@ and if more than one role is found, specify role name further.',
                             return true;
                         }
                         confirm(
-                            message, 
-                            'failure', 
-                            'Command does not exist!', 
+                            message,
+                            'failure',
+                            'Command does not exist!',
                             { delay: 1500, delete: true },
                         );
                     }
@@ -165,7 +165,7 @@ and if more than one role is found, specify role name further.',
             custom: {
                 locked: true,
             },
-    })
+        })
 
     public getQuickColourCommand: () => CommandDefinition = () => {
         return {
@@ -229,9 +229,70 @@ automatically updated',
         };
     }
 
+    public getMessageCommand: () => CommandDefinition = () => (
+        {
+            command: {
+                action: this.createChannelMessage,
+                names: ['message', 'pin', 'msg'],
+            },
+            authentication: RoleTypes.ADMIN,
+            description: {
+                message: 'Create a message for the colour channel (ADMIN ONLY)',
+                example: '{{{prefix}}}msg',
+            },
+        }
+    )
+
+    public getInitiateCommand: () => CommandDefinition = () => (
+        {
+            command: {
+                action: this.initiateNewServer,
+                names: ['init', 'initiate', 'newserver'],
+            },
+            authentication: RoleTypes.OWNER,
+            description: {
+                message: 'Initiate a new server, do this in a private channel! (OWNER ONLY)',
+                example: '{{{prefix}}}init',
+            },
+        }
+    )
+
     /*********************
      * COMMAND FUNCTIONS *
      *********************/
+
+    private createChannelMessage: CommandFunction = async (message) => {
+        const guildRepo = await this.connection.getRepository(Guild);
+        const guild = await guildRepo.findOneById(message.guild.id);
+
+        if (guild && guild.channel) {
+            const channel = <Discord.TextChannel>message
+                .guild
+                .channels
+                .find('id', guild.channel);
+
+            if (channel instanceof Discord.TextChannel) {
+                channel.send(
+                    `
+Request a colour by typing out one of the following colours below. 
+
+__**Only type just the colour, no messages before or after it.**__
+
+__Don't try to talk in this channel__
+your message will be automatically deleted by the bot to keep this channel clean.
+`,
+                );
+                return true;
+            }
+
+            dispatch(message, 'failure', 'Channel not found!');
+            return false;
+        }
+
+        dispatch(message, 'failure', 'Set a colour channel first!');
+        return false;
+    }
+
 
     /**
      * Create a list of colours currently in the guild schema
@@ -260,7 +321,7 @@ automatically updated',
         if (guild.listmessage) {
             if (!guild.channel) {
                 confirm(message, 'failure', 'use setchannel to create a colour channel.');
-                return false; 
+                return false;
             }
             const channel = <Discord.TextChannel>message
                 .guild
@@ -290,7 +351,7 @@ automatically updated',
     private async createNewColourSingleton(message: Discord.Message, guild: Guild) {
         this.singletonInProgress = true;
         const msg = await message.channel.send(
-`The following message will be edited to a list of colours for this guild.
+            `The following message will be edited to a list of colours for this guild.
 These colours will automatically update on colour change.
 __Please do not delete this message__
 As images cannot be edited, do not pin the message, \
@@ -306,7 +367,7 @@ channel history to keep the message at the top.`,
         await sleep(7000);
 
         await this.syncColourList(singleMsg);
-        confirm(message, 'success'); 
+        confirm(message, 'success');
         this.singletonInProgress = false;
     }
 
@@ -315,7 +376,7 @@ channel history to keep the message at the top.`,
         const guildRepo = await this.connection.getRepository(Guild);
         const guild = await guildRepo.findOneById(message.guild.id)
             || await createGuildIfNone(message);
-        
+
         const results = await colourRepo
             .createQueryBuilder('colour')
             .innerJoin('colour.guild', 'guild')
@@ -324,8 +385,8 @@ channel history to keep the message at the top.`,
 
 
 
-        const dom = 
-        `<html>
+        const dom =
+            `<html>
             <div id="list" style="
                 font-size: 60px; 
                 margin-top: 0;
@@ -334,13 +395,13 @@ channel history to keep the message at the top.`,
                 width: 100vw; 
                 height: 100vh">
                ${results.map((item) => {
-                    const guildRole = message.guild.roles.find('id', item.roleID);
-                    if (!guildRole) {
-                        return false;
-                    }
-                    const colour = guildRole.hexColor;
+                const guildRole = message.guild.roles.find('id', item.roleID);
+                if (!guildRole) {
+                    return false;
+                }
+                const colour = guildRole.hexColor;
 
-                    return `
+                return `
                     <div style="width: 50%; display: flex; float: left;"> 
                         <div style="
                             width: 50%; 
@@ -382,8 +443,8 @@ channel history to keep the message at the top.`,
                             </span>
                         </div> 
                     </div>`;
-                },
-               ).join('\n')}
+            },
+            ).join('\n')}
             </div>
         </html>`;
 
@@ -395,16 +456,16 @@ channel history to keep the message at the top.`,
 
         const img = 'list.png';
         await createShot(
-            dom, 
-            img, 
-            { 
-                siteType: 'html', 
+            dom,
+            img,
+            {
+                siteType: 'html',
                 windowSize: {
                     height: `${results.length * 40}`,
                     width: '2500',
                 },
-                shotSize: { 
-                    height: 'all', 
+                shotSize: {
+                    height: 'all',
                     width: 'all',
                 },
             });
@@ -447,9 +508,9 @@ channel history to keep the message at the top.`,
             .innerJoin('colour.guild.id', 'guild')
             .where('colour.guild = :guildId', { guildId: message.guild.id })
             .andWhere(
-                'colour.name LIKE :colourName', 
-                { colourName: `%${parameters.named.colour}%` },
-            )
+            'colour.name LIKE :colourName',
+            { colourName: `%${parameters.named.colour}%` },
+        )
             .getOne();
 
         const guild = await guildRepo.findOneById(message.guild.id);
@@ -499,10 +560,10 @@ of the colour, else ask an admin to add the colour.');
      * @param message 
      */
     async setColourToUser(
-        newColour: Colour, 
-        connection: Connection, 
-        user: User, 
-        guild: Guild, 
+        newColour: Colour,
+        connection: Connection,
+        user: User,
+        guild: Guild,
         message: Discord.Message,
     ) {
         try {
@@ -525,7 +586,7 @@ of the colour, else ask an admin to add the colour.');
             const possibleColours = colourList
                 .map(colour => userMember.roles.find('name', colour.name))
                 .filter(id => id);
-            
+
             await userMember.removeRoles(possibleColours);
 
             const updatedUser = await userRepo.persist(user);
@@ -546,16 +607,16 @@ of the colour, else ask an admin to add the colour.');
                 confirm(message, 'success', undefined, { delay: 1000, delete: true });
             } catch (e) {
                 confirm(
-                    message, 
-                    'failure', 
-                    `Error setting colour: ${e}`, 
+                    message,
+                    'failure',
+                    `Error setting colour: ${e}`,
                     { delay: 3000, delete: true },
                 );
             }
 
             return true;
         } catch (e) {
-            confirm(message, 'failure',  `error: ${e}`);
+            confirm(message, 'failure', `error: ${e}`);
             return false;
         }
     }
@@ -583,7 +644,7 @@ of the colour, else ask an admin to add the colour.');
 
         const roleID = await this.findRole(message, parameters.named.role);
         if (!roleID) {
-            await confirm(message, 'failure',`No usable roles could be found! \
+            await confirm(message, 'failure', `No usable roles could be found! \
 Mention a role or redefine your search parameters.`);
             return false;
         }
@@ -700,7 +761,7 @@ Mention a role or redefine your search parameters.`);
                         .map(roleOjb => `Rolename: ${roleOjb.name.replace('@', '')}`)
                         .join('\n')
                     }
-                `, 
+                `,
                 { delay: 10000, delete: true });
             return false;
         }
@@ -817,8 +878,8 @@ guild not part of the current database.');
 
         if (!colour) {
             confirm(
-                message, 
-                'failure', 
+                message,
+                'failure',
                 'Colour was not found, check your name with the colourlist.',
             );
             return false;
@@ -834,4 +895,146 @@ guild not part of the current database.');
         confirm(message, 'success');
         return true;
     }
+
+    private initiateNewServer: CommandFunction = async (
+        message,
+        opts,
+        params,
+        client,
+        self,
+    ) => {
+        const author = message.author;
+        const prefix = self.defaultPrefix.str;
+
+        const msgVec = await message.channel.send(
+            stripIndents`Welcome to Colour Bot!
+            It is recommended to do this command in a mod channel.
+            Type \`y\` or \`n\` to confirm continue`);
+        const msg = Array.isArray(msgVec) ? msgVec[0] : msgVec;
+
+        const replyMessage = await getNextReply(message, author);
+
+        if (replyMessage.content.startsWith('n') || !replyMessage.content.startsWith('y')) {
+            confirm(message, 'failure', 'Command was killed by calle.');
+            msg.delete();
+            replyMessage.delete();
+            return;
+        }
+
+        replyMessage.delete();
+        msg.edit(
+            `Step 1: set a colour channel with using ${prefix}setchannel #channel`,
+        );
+
+        const nextReply = await getNextReply(message, author);
+        const chan = nextReply.mentions.channels.first();
+
+        if (!nextReply.content.includes('setchannel')) {
+            confirm(message, 'failure', 'Failed to follow instructions!');
+            msg.delete();
+            nextReply.delete();
+            return;
+        }
+
+        msg.edit(
+            `Step 2: add your mod group in with ${prefix}addrole admin @admins`,
+        );
+
+        const adminReply = await getNextReply(message, author);
+        if (adminReply.mentions.roles.size <= 0
+            && !adminReply.content.includes('addrole')) {
+            confirm(message, 'failure', 'Failed to follow instructions!');
+            msg.delete();
+            nextReply.delete();
+            return;
+        }
+
+        await msg.delete();
+        await adminReply.delete();
+        const nextVec = await message.channel.send(
+            `Would you like to generate a set of standard rainbow colours?  (\`y\` or \`n\`)`,
+        );
+
+        /* Why? the role command is noisy, and dumps 1 or two messages into the channel. */
+        const nextMsg = Array.isArray(nextVec) ? nextVec[0] : nextVec;
+
+        const generateReply = await getNextReply(message, author);
+
+        if (generateReply.content.includes('y')) {
+            const genVec = await message.channel.send('Generating...');
+            const genMsg = Array.isArray(genVec) ? genVec[0] : genVec;
+
+            /* Chill typescript, its fine, we only need a message object. */
+            (this.generateStandardColours as (msg: Discord.Message) => Promise<boolean>)(genMsg);
+        }
+
+        generateReply.delete();
+
+
+
+        nextMsg.edit(
+            `Would you like to make help message (highly recommended!) (\`y\` or \`n\`)`,
+        );
+
+        const helpReply = await getNextReply(message, author);
+
+        if (helpReply.content.includes('y')) {
+            const helpVec = await chan.send('Getting Help?');
+            const helpMsg = Array.isArray(helpVec) ? helpVec[0] : helpVec;
+
+            (this.createChannelMessage as (msg: Discord.Message) => Promise<boolean>)(helpMsg);
+            helpMsg.delete()
+                .catch(e => null);
+        }
+
+
+        helpReply.delete();
+
+        await nextMsg.edit(
+            `Would you like to create a colour list image? (\`y\` or \`n\`)`,
+        );
+
+        const listReply = await getNextReply(message, author);
+
+        if (listReply.content.includes('y')) {
+            const listVec = await chan.send('Generating List!');
+            const listMsg = Array.isArray(listVec) ? listVec[0] : listVec;
+
+            /* Again, take a chill pill ts */
+            await (this.listColours as (msg: Discord.Message) => Promise<boolean>)(listMsg);
+        }
+
+        listReply
+            .delete()
+            .catch(e => null);
+        // TODO: Create more colours with a c.cycle_existing
+
+        nextMsg.edit(
+            stripIndents`Alright, initiation procedures completed!
+            
+            To add existing roles to bot, use 
+            \`${prefix}setcolour colour_name role_name\`
+            
+            You can mention roles or just search by name.
+            However if there are mutliple results for a role, bot will not add it.
+            Make sure the role search result is unique.
+
+            To quickly add a new colour to the bot, use
+            \`${prefix}quickcolour colour_name colour_hex_code\`
+
+            It is recommended to pin this message for reference for other admins.
+            `,
+        );
+
+        confirm(message, 'success')
+            .catch(e => null);
+        return true;
+    }
 }
+
+const getNextReply = async (message: Discord.Message, author: Discord.User) => {
+    const reply = await message.channel.awaitMessages(msg => msg.author.id === author.id, {
+        maxMatches: 1,
+    });
+    return reply.first();
+};

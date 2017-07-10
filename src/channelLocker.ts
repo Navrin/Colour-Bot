@@ -8,7 +8,7 @@ import {
 import { Guild } from './database/guild/model';
 import { Connection, getConnectionManager} from 'typeorm';
 import { createGuildIfNone } from './database/guild/actions';
-import { confirm } from './emojis';
+import { confirm } from './confirmer';
 
 export default
 class ChannelLocker {

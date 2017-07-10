@@ -24,6 +24,7 @@ client.on('ready', () => {
 process.on('unhandledRejection', (e) => {
     console.error(e, e.stack);
 });
+const prefix = settings.prefix || process.env.COLOUR_BOT_PREFIX || 'c.';
 client.on('guildCreate', (guild) => {
     actions_1.listenForGuilds(guild);
     const owner = guild.owner;
@@ -32,26 +33,12 @@ client.on('guildCreate', (guild) => {
     `
 Hey! Thanks for adding me onto your server. I'll be able to manage and handle the creation of new colours, provided I have the right permissions!
 
-To get started, you'll need to run a few commands first.
+To get started, find a mod channel and begin the server initiation with 
+\`${prefix}init\`
 
-1. Set your (mods|admins) with \`c.addrole admin @role\`
-
-2. **Set a channel with \`c.setchannel #COLOUR_REQUEST_CHANNEL\`**
-
-3. // TODO: Type c.message to create a help message for this channel.
-
-4. Quickly create a set of standard rainbow colours with \`c.generate\`
-
-5. Type \`c.colours\` to create a new image list of colours with a light and dark background. 
-(do this in the colour channel)
-
-6. Add existing colour roles to the bot with \`c.setcolour colour_name discord_role_name\`
-or create new colours with \`c.quickcolour colour_name hex_code\`
-
-(use c.help to see all of the commands.)
+(use ${prefix}help to see all of the commands.)
 `);
 });
-const prefix = settings.prefix || process.env.COLOUR_BOT_PREFIX || 'c.';
 new simple_discordjs_1.default(prefix, client, {
     deleteCommandMessage: false,
     deleteMessageDelay: 2000,
@@ -71,5 +58,7 @@ new simple_discordjs_1.default(prefix, client, {
     .defineCommand(colourizer.getGenerateColours())
     .defineCommand(colourizer.getQuickColourCommand())
     .defineCommand(colourizer.getDeleteColour())
+    .defineCommand(colourizer.getMessageCommand())
+    .defineCommand(colourizer.getInitiateCommand())
     .generateHelp()
     .listen();

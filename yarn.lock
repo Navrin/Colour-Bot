@@ -1953,9 +1953,9 @@ signal-exit@^3.0.0:
   version "3.0.2"
   resolved "https://registry.yarnpkg.com/signal-exit/-/signal-exit-3.0.2.tgz#b5fdc08f1287ea1178628e415e25132b73646c6d"
 
-simple-discordjs@^1.5.8:
-  version "1.5.8"
-  resolved "https://registry.yarnpkg.com/simple-discordjs/-/simple-discordjs-1.5.8.tgz#98669788f5d33284f0822a3ca0d46bd6d8153c5c"
+simple-discordjs@^1.5.9:
+  version "1.5.9"
+  resolved "https://registry.yarnpkg.com/simple-discordjs/-/simple-discordjs-1.5.9.tgz#f08e037499e10bf9a414f555587fc0f51507d234"
   dependencies:
     common-tags "^1.4.0"
     discord.js "^11.1.0"
