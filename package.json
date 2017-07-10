@@ -27,7 +27,7 @@
     "jsdom": "^11.0.0",
     "mz": "^2.6.0",
     "public-ip": "^2.3.5",
-    "simple-discordjs": "^1.5.9",
+    "simple-discordjs": "^1.5.10",
     "ts-node": "^3.0.4",
     "typescript": "^2.4.1",
     "webshot": "^0.18.0"

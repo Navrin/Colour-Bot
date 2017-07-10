@@ -11,11 +11,11 @@ import { getInviteLinkDescriber } from './utils';
 import './database/init';
 import ChannelLocker from './channelLocker';
 import { listenForGuilds } from './database/guild/actions';
-const limiter = new RateLimiter(1, 100);
+const limiter = new RateLimiter(5, 10);
 const client = new Discord.Client();
 const colourizer = new Colourizer();
 const auth = new Auth(settings.superuser || process.env.COLOUR_BOT_SUPERUSER, {
-    deleteMessageDelay: 100,
+    deleteMessageDelay: 1000,
     deleteMessages: true,
 });
 const locker = new ChannelLocker();
@@ -55,21 +55,23 @@ new Commands(prefix, client, {
 })
     .use(auth.authenticate)
     .use(locker.lock)
-    .defineCommand(colourizer.guardChannel(prefix))
+    .use(limiter.protect)
     .defineCommand(getInviteLinkDescriber())
-    .defineCommand(locker.getSetChannelLock())
     .defineCommand(auth.getCommand())
-    .defineCommand(colourizer.getDirtyColourCommand(prefix))
+    .defineCommand(locker.getSetChannelLock())
+    .defineCommand(colourizer.guardChannel(prefix))
     // uses m8 regex to allow for the colours to be called without any prefix
     // only in some channels though.
+    .defineCommand(colourizer.getInitiateCommand())
     .defineCommand(colourizer.getSetCommand())
+    .defineCommand(colourizer.getDirtyColourCommand(prefix))
     .defineCommand(colourizer.getColourCommand())
-    .defineCommand(colourizer.getListCommand())
+    .defineCommand(colourizer.getDeleteColour())
     .defineCommand(colourizer.getGenerateColours())
     .defineCommand(colourizer.getQuickColourCommand())
-    .defineCommand(colourizer.getDeleteColour())
+    .defineCommand(colourizer.getListCommand())
+    .defineCommand(colourizer.getCycleExistingCommand())
     .defineCommand(colourizer.getMessageCommand())
-    .defineCommand(colourizer.getInitiateCommand())
     .generateHelp()
     .listen();
 

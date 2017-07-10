@@ -214,9 +214,29 @@ automatically updated',
                 example: '{{{prefix}}}init',
             },
         });
+        this.getCycleExistingCommand = () => ({
+            command: {
+                action: this.cycleExistingRoles,
+                names: ['cycle_existing', 'cycle'],
+            },
+            authentication: simple_discordjs_1.RoleTypes.ADMIN,
+            description: {
+                message: 'Cycles the existing server roles as an interactive prompt.',
+                example: '{{{prefix}}}cycle',
+            },
+        });
         /*********************
          * COMMAND FUNCTIONS *
          *********************/
+        /**
+         * Creates a help message in the colour channel.
+         * // TODO: Allow for custom messages possibly?
+         * // TODO: Track help messages like the list, to delete automatically when updated
+         *
+         * @private
+         * @type {CommandFunction}
+         * @memberof Colourizer
+         */
         this.createChannelMessage = (message) => __awaiter(this, void 0, void 0, function* () {
             const guildRepo = yield this.connection.getRepository(model_1.Guild);
             const guild = yield guildRepo.findOneById(message.guild.id);
@@ -226,14 +246,14 @@ automatically updated',
                     .channels
                     .find('id', guild.channel);
                 if (channel instanceof Discord.TextChannel) {
-                    channel.send(`
-Request a colour by typing out one of the following colours below. 
+                    channel.send(common_tags_1.stripIndents `
+                        Request a colour by typing out one of the following colours below. 
 
-__**Only type just the colour, no messages before or after it.**__
+                        __**Only type just the colour, no messages before or after it.**__
 
-__Don't try to talk in this channel__
-your message will be automatically deleted by the bot to keep this channel clean.
-`);
+                        __Don't try to talk in this channel__
+                        messages are deleted automatically if they don't match a command or colour.
+                    `);
                     return true;
                 }
                 dispatch_1.dispatch(message, 'failure', 'Channel not found!');
@@ -244,8 +264,6 @@ your message will be automatically deleted by the bot to keep this channel clean
         });
         /**
          * Create a list of colours currently in the guild schema
-         * // TODO Create a singleton message for each guild that can be pinned
-         * // TODO Have the singleton automatically be edited on colour changes.
          *
          * @private
          * @type {CommandFunction}
@@ -285,8 +303,8 @@ your message will be automatically deleted by the bot to keep this channel clean
             }
             if (colour == null) {
                 if (!silent) {
-                    yield confirmer_1.confirm(message, 'failure', 'Colour was not found. Check your spelling \
-of the colour, else ask an admin to add the colour.');
+                    yield confirmer_1.confirm(message, 'failure', common_tags_1.oneLineTrim `Colour was not found. Check your spelling
+                        of the colour, else ask an admin to add the colour.`);
                 }
                 return false;
             }
@@ -325,8 +343,8 @@ of the colour, else ask an admin to add the colour.');
             const colourRepo = yield this.connection.getRepository(model_2.Colour);
             const roleID = yield this.findRole(message, parameters.named.role);
             if (!roleID) {
-                yield confirmer_1.confirm(message, 'failure', `No usable roles could be found! \
-Mention a role or redefine your search parameters.`);
+                yield confirmer_1.confirm(message, 'failure', common_tags_1.oneLineTrim `No usable roles could be found!
+                    Mention a role or redefine your search parameters.`);
                 return false;
             }
             const guild = yield guildRepo.findOneById(message.guild.id);
@@ -363,8 +381,8 @@ Mention a role or redefine your search parameters.`);
                 const guild = (yield guildRepo.findOneById(discordGuild.id))
                     || (yield actions_2.createGuildIfNone(message));
                 if (!guild) {
-                    yield confirmer_1.confirm(message, 'failure', 'Error when setting roles,\
-guild not part of the current database.');
+                    yield confirmer_1.confirm(message, 'failure', common_tags_1.oneLineTrim `Error when setting roles,
+                        guild not part of the current database.`);
                     break;
                 }
                 try {
@@ -433,6 +451,18 @@ guild not part of the current database.');
             confirmer_1.confirm(message, 'success');
             return true;
         });
+        /**
+         * An initiate command for a new server.
+         * Makes the initial setup process much easier.
+         *
+         * It will make the owner define the colour channel,
+         * then an admin role,
+         * then prompt it for additional, useful features.
+         *
+         * @private
+         * @type {CommandFunction}
+         * @memberof Colourizer
+         */
         this.initiateNewServer = (message, opts, params, client, self) => __awaiter(this, void 0, void 0, function* () {
             const author = message.author;
             const prefix = self.defaultPrefix.str;
@@ -440,7 +470,7 @@ guild not part of the current database.');
             It is recommended to do this command in a mod channel.
             Type \`y\` or \`n\` to confirm continue`);
             const msg = Array.isArray(msgVec) ? msgVec[0] : msgVec;
-            const replyMessage = yield getNextReply(message, author);
+            const replyMessage = yield this.getNextReply(message, author);
             if (replyMessage.content.startsWith('n') || !replyMessage.content.startsWith('y')) {
                 confirmer_1.confirm(message, 'failure', 'Command was killed by calle.');
                 msg.delete();
@@ -449,7 +479,7 @@ guild not part of the current database.');
             }
             replyMessage.delete();
             msg.edit(`Step 1: set a colour channel with using ${prefix}setchannel #channel`);
-            const nextReply = yield getNextReply(message, author);
+            const nextReply = yield this.getNextReply(message, author);
             const chan = nextReply.mentions.channels.first();
             if (!nextReply.content.includes('setchannel')) {
                 confirmer_1.confirm(message, 'failure', 'Failed to follow instructions!');
@@ -458,7 +488,7 @@ guild not part of the current database.');
                 return;
             }
             msg.edit(`Step 2: add your mod group in with ${prefix}addrole admin @admins`);
-            const adminReply = yield getNextReply(message, author);
+            const adminReply = yield this.getNextReply(message, author);
             if (adminReply.mentions.roles.size <= 0
                 && !adminReply.content.includes('addrole')) {
                 confirmer_1.confirm(message, 'failure', 'Failed to follow instructions!');
@@ -466,12 +496,9 @@ guild not part of the current database.');
                 nextReply.delete();
                 return;
             }
-            yield msg.delete();
-            yield adminReply.delete();
-            const nextVec = yield message.channel.send(`Would you like to generate a set of standard rainbow colours?  (\`y\` or \`n\`)`);
-            /* Why? the role command is noisy, and dumps 1 or two messages into the channel. */
-            const nextMsg = Array.isArray(nextVec) ? nextVec[0] : nextVec;
-            const generateReply = yield getNextReply(message, author);
+            adminReply.delete(1000);
+            yield msg.edit(`Would you like to generate a set of standard rainbow colours?  (\`y\` or \`n\`)`);
+            const generateReply = yield this.getNextReply(message, author);
             if (generateReply.content.includes('y')) {
                 const genVec = yield message.channel.send('Generating...');
                 const genMsg = Array.isArray(genVec) ? genVec[0] : genVec;
@@ -479,8 +506,8 @@ guild not part of the current database.');
                 this.generateStandardColours(genMsg);
             }
             generateReply.delete();
-            nextMsg.edit(`Would you like to make help message (highly recommended!) (\`y\` or \`n\`)`);
-            const helpReply = yield getNextReply(message, author);
+            yield msg.edit(`Would you like to make help message (highly recommended!) (\`y\` or \`n\`)`);
+            const helpReply = yield this.getNextReply(message, author);
             if (helpReply.content.includes('y')) {
                 const helpVec = yield chan.send('Getting Help?');
                 const helpMsg = Array.isArray(helpVec) ? helpVec[0] : helpVec;
@@ -489,8 +516,8 @@ guild not part of the current database.');
                     .catch(e => null);
             }
             helpReply.delete();
-            yield nextMsg.edit(`Would you like to create a colour list image? (\`y\` or \`n\`)`);
-            const listReply = yield getNextReply(message, author);
+            yield msg.edit(`Would you like to create a colour list image? (\`y\` or \`n\`)`);
+            const listReply = yield this.getNextReply(message, author);
             if (listReply.content.includes('y')) {
                 const listVec = yield chan.send('Generating List!');
                 const listMsg = Array.isArray(listVec) ? listVec[0] : listVec;
@@ -501,7 +528,7 @@ guild not part of the current database.');
                 .delete()
                 .catch(e => null);
             // TODO: Create more colours with a c.cycle_existing
-            nextMsg.edit(common_tags_1.stripIndents `Alright, initiation procedures completed!
+            msg.edit(common_tags_1.stripIndents `Alright, initiation procedures completed!
             
             To add existing roles to bot, use 
             \`${prefix}setcolour colour_name role_name\`
@@ -515,12 +542,131 @@ guild not part of the current database.');
 
             It is recommended to pin this message for reference for other admins.
             `);
+            const prompt = yield message.channel.send(common_tags_1.stripIndents 
+            // tslint:disable-next-line:max-line-length
+            `__It is also recommended you run ${prefix}cycle if you already have colour roles set up__.
+            An admin can do this for you, if you wish.`);
+            prompt.delete(7500);
             confirmer_1.confirm(message, 'success')
                 .catch(e => null);
             return true;
         });
+        this.cycleExistingRoles = (message) => __awaiter(this, void 0, void 0, function* () {
+            const roles = message.guild.roles;
+            const { author } = message;
+            // const testSpecial = (role: Discord.Role) => {
+            //     return (
+            //         role.hasPermission('ADMINISTRATOR')   ||
+            //         role.hasPermission('KICK_MEMBERS')    ||
+            //         role.hasPermission('BAN_MEMBERS')     ||
+            //         role.hasPermission('MANAGE_CHANNELS') ||
+            //         role.hasPermission('MANAGE_GUILD')    ||
+            //         role.hasPermission('MANAGE_MESSAGES') ||
+            //         role.hasPermission('')
+            //     )    
+            // }
+            const guildRepo = yield this.connection.getRepository(model_1.Guild);
+            const guild = (yield guildRepo.findOneById(message.guild.id))
+                || (yield actions_2.createGuildIfNone(message));
+            const chan = message
+                .guild
+                .channels
+                .find('id', guild.channel);
+            if (guild.channel === undefined || chan === undefined) {
+                confirmer_1.confirm(message, 'failure', 'Set a colour channel before running this command!', { delete: true, delay: 3000 });
+                return;
+            }
+            const baselinePerms = Object
+                .entries(roles
+                .find('id', message.guild.id)
+                .serialize())
+                .filter(([role, has]) => has)
+                .map(([role, has]) => role);
+            const msg = yield message.channel.send(common_tags_1.stripIndents `
+            Welcome! This command will cycle through all existing roles to add them to the bot.
+            You can choose the name for each colour after a confirmation.
+            It is recommended you run this command in a mod channel.
+            Would you like to continue? (\`y\` or \`n\`)`);
+            const reply = yield this.getNextReply(message, author);
+            if (reply.content.startsWith('n')) {
+                reply.delete();
+                confirmer_1.confirm(message, 'failure', 'Function was aborted by user!');
+                return;
+            }
+            reply.delete();
+            for (const [id, role] of roles) {
+                if (role.managed) {
+                    msg.edit('Skipping managed role...');
+                    sleep(1000);
+                    continue;
+                }
+                const permissions = Object
+                    .entries(role.serialize())
+                    .filter(([role, has]) => has)
+                    .map(([role, has]) => role);
+                const embed = new Discord.RichEmbed()
+                    .setColor(role.color)
+                    .setTitle(`Role: ${role.name}`)
+                    .addField('Confirm', common_tags_1.oneLineTrim `
+                    Would you like to add this role? 
+                    (\`y\` or \`n\` or \`cancel\` or \`finish\`)`)
+                    .setDescription('The colour for this role is the highlight on the side.')
+                    .addField('Warnings', (baselinePerms.length < permissions.length
+                    || role.name === '@everyone')
+                    ? '❌ Warning. This role may have special permissions!'
+                    : '☑️ This role looks fine!');
+                msg.edit({ embed });
+                const reply = yield this.getNextReply(message, author);
+                if (reply.content.startsWith('n')) {
+                    reply.delete();
+                    continue;
+                }
+                if (reply.content.startsWith('cancel')) {
+                    confirmer_1.confirm(message, 'failure', 'Function was canceled!');
+                    msg.delete();
+                    reply.delete();
+                    return;
+                }
+                if (reply.content.startsWith('finish')) {
+                    reply.delete();
+                    msg.delete();
+                    break;
+                }
+                reply.delete();
+                const setName = new Discord.RichEmbed()
+                    .setColor(role.color)
+                    .addField('Name', 'Type in the color name for this role.')
+                    .addField('Default', `To set as ${role.name}, type =default`, true)
+                    .addField('Cancel', 'To cancel, type =cancel', true);
+                msg.edit({ embed: setName });
+                const name = yield this.getNextReply(message, author);
+                if (name.content.startsWith('=cancel')) {
+                    name.delete();
+                    continue;
+                }
+                this.setColourEntity(name.content.startsWith('=default')
+                    ? role.name
+                    : name.content, guild, role.id, name, true, true);
+                name.delete();
+            }
+            const generator = yield chan.send('Generating colours...!');
+            this.updateOrListColours(generator);
+            msg.edit(`Wohoo, that's all the roles!`);
+            msg.delete(2000);
+            confirmer_1.confirm(message, 'success');
+            return true;
+        });
         this.connection = typeorm_1.getConnectionManager().get();
     }
+    /**
+     * Determines if the colour list should be created,
+     * or update the existing one (delete and repost list)
+     *
+     * @private
+     * @param {Discord.Message} message
+     * @returns
+     * @memberof Colourizer
+     */
     updateOrListColours(message) {
         return __awaiter(this, void 0, void 0, function* () {
             const guildRepo = yield this.connection.getRepository(model_1.Guild);
@@ -554,15 +700,25 @@ guild not part of the current database.');
             return true;
         });
     }
+    /**
+     * Creates a new list in the colour channel if none exists prior.
+     *
+     *
+     * @private
+     * @param {Discord.Message} message
+     * @param {Guild} guild
+     * @memberof Colourizer
+     */
     createNewColourSingleton(message, guild) {
         return __awaiter(this, void 0, void 0, function* () {
             this.singletonInProgress = true;
-            const msg = yield message.channel.send(`The following message will be edited to a list of colours for this guild.
-These colours will automatically update on colour change.
-__Please do not delete this message__
-As images cannot be edited, do not pin the message, \
-but the colour bot should maintain a clean (enough) \ 
-channel history to keep the message at the top.`);
+            const msg = yield message.channel.send(
+            // tslint:disable:max-line-length
+            common_tags_1.stripIndents `The following message will be edited to a list of colours for this guild.
+            These colours will automatically update on colour change.
+            __Please do not delete this message__
+            As images cannot be edited, do not pin the message, but the colour bot should maintain a clean (enough) channel history to keep the message at the top.`);
+            // tslint:enable:max-line-length
             const singleMsg = Array.isArray(msg) ? msg[0] : msg;
             const guildRepo = yield this.connection.getRepository(model_1.Guild);
             guild.listmessage = singleMsg.id;
@@ -573,6 +729,17 @@ channel history to keep the message at the top.`);
             this.singletonInProgress = false;
         });
     }
+    /**
+     * Updates the colour list already posted in the server.
+     * This method was originally supposed to edit an embed,
+     * however, the discord API does not support image editing,
+     * therefore delete the image and post a new one.
+     * Hacky? maybe.
+     *
+     * @private
+     * @param {Discord.Message} message
+     * @memberof Colourizer
+     */
     syncColourList(message) {
         return __awaiter(this, void 0, void 0, function* () {
             const colourRepo = yield this.connection.getRepository(model_2.Colour);
@@ -807,11 +974,23 @@ channel history to keep the message at the top.`);
             return search.firstKey();
         });
     }
+    /**
+     *
+     * Helper method for getting a user reply.
+     *
+     * @private
+     * @param {Discord.Message} message
+     * @param {Discord.User} author
+     * @returns
+     * @memberof Colourizer
+     */
+    getNextReply(message, author) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const reply = yield message.channel.awaitMessages(msg => msg.author.id === author.id, {
+                maxMatches: 1,
+            });
+            return reply.first();
+        });
+    }
 }
 exports.default = Colourizer;
-const getNextReply = (message, author) => __awaiter(this, void 0, void 0, function* () {
-    const reply = yield message.channel.awaitMessages(msg => msg.author.id === author.id, {
-        maxMatches: 1,
-    });
-    return reply.first();
-});

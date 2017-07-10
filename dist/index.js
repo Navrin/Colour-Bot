@@ -9,11 +9,11 @@ const utils_1 = require("./utils");
 require("./database/init");
 const channelLocker_1 = require("./channelLocker");
 const actions_1 = require("./database/guild/actions");
-const limiter = new simple_discordjs_1.RateLimiter(1, 100);
+const limiter = new simple_discordjs_1.RateLimiter(5, 10);
 const client = new Discord.Client();
 const colourizer = new colourizer_1.default();
 const auth = new simple_discordjs_1.Auth(settings.superuser || process.env.COLOUR_BOT_SUPERUSER, {
-    deleteMessageDelay: 100,
+    deleteMessageDelay: 1000,
     deleteMessages: true,
 });
 const locker = new channelLocker_1.default();
@@ -47,18 +47,20 @@ new simple_discordjs_1.default(prefix, client, {
 })
     .use(auth.authenticate)
     .use(locker.lock)
-    .defineCommand(colourizer.guardChannel(prefix))
+    .use(limiter.protect)
     .defineCommand(utils_1.getInviteLinkDescriber())
-    .defineCommand(locker.getSetChannelLock())
     .defineCommand(auth.getCommand())
-    .defineCommand(colourizer.getDirtyColourCommand(prefix))
+    .defineCommand(locker.getSetChannelLock())
+    .defineCommand(colourizer.guardChannel(prefix))
+    .defineCommand(colourizer.getInitiateCommand())
     .defineCommand(colourizer.getSetCommand())
+    .defineCommand(colourizer.getDirtyColourCommand(prefix))
     .defineCommand(colourizer.getColourCommand())
-    .defineCommand(colourizer.getListCommand())
+    .defineCommand(colourizer.getDeleteColour())
     .defineCommand(colourizer.getGenerateColours())
     .defineCommand(colourizer.getQuickColourCommand())
-    .defineCommand(colourizer.getDeleteColour())
+    .defineCommand(colourizer.getListCommand())
+    .defineCommand(colourizer.getCycleExistingCommand())
     .defineCommand(colourizer.getMessageCommand())
-    .defineCommand(colourizer.getInitiateCommand())
     .generateHelp()
     .listen();
