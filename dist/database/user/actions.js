@@ -34,11 +34,21 @@ exports.createUserIfNone = createUserIfNone;
 const findUser = (user, guild, connection) => __awaiter(this, void 0, void 0, function* () {
     const guildRepo = yield connection.getRepository(model_3.Guild);
     const userRepo = yield connection.getRepository(model_1.User);
+    const colourRepo = yield connection.getRepository(model_2.Colour);
+    // const userEntity = userRepo
+    //     .createQueryBuilder('user')
+    //     .innerJoin('user.guild', 'guild', 'user.guild = guild.id')
+    //     .innerJoin('user.colour', 'colour', 'user.colour = colour.id')
+    //     .where('user.id = :userid', { userid: user })
+    //     .getOne();
     const userEntity = userRepo
-        .createQueryBuilder('user')
-        .innerJoin('user.guild', 'guild', 'user.guild = guild.id')
-        .where('user.id = :userid', { userid: user })
-        .getOne();
+        .findOne({
+        alias: 'user',
+        id: user,
+        innerJoinAndSelect: {
+            colour: 'user.colour',
+        },
+    });
     return userEntity;
 });
 exports.findUser = findUser;

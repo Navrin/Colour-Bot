@@ -37,12 +37,23 @@ const createUserIfNone: CreateUserFunc = async (discordUser, guild, connection, 
 const findUser = async (user: string, guild: Guild, connection: Connection) => {
     const guildRepo = await connection.getRepository(Guild);
     const userRepo = await connection.getRepository(User);
+    const colourRepo = await connection.getRepository(Colour);
 
+    // const userEntity = userRepo
+    //     .createQueryBuilder('user')
+    //     .innerJoin('user.guild', 'guild', 'user.guild = guild.id')
+    //     .innerJoin('user.colour', 'colour', 'user.colour = colour.id')
+    //     .where('user.id = :userid', { userid: user })
+    //     .getOne();
+    
     const userEntity = userRepo
-        .createQueryBuilder('user')
-        .innerJoin('user.guild', 'guild', 'user.guild = guild.id')
-        .where('user.id = :userid', { userid: user })
-        .getOne();
+        .findOne({
+            alias: 'user',
+            id: user,
+            innerJoinAndSelect: {
+                colour: 'user.colour',
+            },
+        });
 
     return userEntity;
 };

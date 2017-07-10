@@ -314,12 +314,7 @@ automatically updated',
                 yield confirmer_1.confirm(message, 'failure', 'Error when creating user.');
                 return;
             }
-            const user = yield userRepo
-                .createQueryBuilder('user')
-                .innerJoin('user.guild', 'guild', 'user.guild = guild.id')
-                .innerJoin('user.colour', 'colour', 'user.colour = colour.id')
-                .where('user.id = :userid', { userid: userEntitiy.id })
-                .getOne();
+            const user = yield actions_3.findUser(message.author.id, guild, this.connection);
             if (user == null) {
                 message.channel.send('User is not in schema: ', user);
                 return false;

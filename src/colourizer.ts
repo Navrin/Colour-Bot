@@ -589,12 +589,7 @@ automatically updated',
             return;
         }
 
-        const user = await userRepo
-            .createQueryBuilder('user')
-            .innerJoin('user.guild', 'guild', 'user.guild = guild.id')
-            .innerJoin('user.colour', 'colour', 'user.colour = colour.id')
-            .where('user.id = :userid', { userid: userEntitiy.id })
-            .getOne();
+        const user = await findUser(message.author.id, guild, this.connection); 
 
         if (user == null) {
             message.channel.send('User is not in schema: ', user);
@@ -628,11 +623,11 @@ automatically updated',
 
             if (user.colour !== undefined) {
                 const oldColour = message.guild.roles.get(user.colour.roleID);
-
                 if (oldColour === undefined) {
                     confirm(message, 'failure', 'Error setting colour!');
                     return false;
                 }
+
                 await message.guild.member(message.author).removeRole(oldColour);
             }
             const userMember = message.guild.member(message.author.id);
