@@ -64,5 +64,6 @@ typings/
 botConfig.json
 list.png
 *.db
+typeorm.json
 
 # End of https://www.gitignore.io/api/node

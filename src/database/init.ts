@@ -2,13 +2,7 @@ import { getConnectionManager, ConnectionOptions } from 'typeorm';
 import entities from './entities';
 
 const connectionOptions: ConnectionOptions = {
-    driver: {
-        type: 'postgres',
-        username: 'nav',
-        port: 5432,
-        host: 'localhost',
-        database: 'colourbot',
-    },
+    driver: require('../../typeorm.json'),
     entities: [
         ...entities,
     ],
