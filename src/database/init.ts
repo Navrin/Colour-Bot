@@ -3,8 +3,11 @@ import entities from './entities';
 
 const connectionOptions: ConnectionOptions = {
     driver: {
-        type: 'sqlite',
-        storage: 'colourful.db',
+        type: 'postgres',
+        username: 'nav',
+        port: 5432,
+        host: 'localhost',
+        database: 'colourbot',
     },
     entities: [
         ...entities,

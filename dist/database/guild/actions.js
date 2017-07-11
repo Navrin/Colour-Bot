@@ -12,11 +12,12 @@ const typeorm_1 = require("typeorm");
 const model_1 = require("./model");
 exports.createGuildIfNone = (message) => __awaiter(this, void 0, void 0, function* () {
     try {
-        const guild = yield makeGuildFromId(message.id);
+        const guild = yield makeGuildFromId(message.guild.id);
         message.react('☑');
         return yield guild;
     }
     catch (e) {
+        console.log(e);
         message.channel.send('Woah. Error creating this guild, detonating the existing? guild.');
         const guildRepo = yield typeorm_1.getConnectionManager()
             .get()
@@ -35,8 +36,9 @@ const makeGuildFromId = (id) => __awaiter(this, void 0, void 0, function* () {
     const guild = new model_1.Guild();
     guild.id = id;
     guild.colours = [];
-    const guilder = yield guildRepo.persist(guild);
-    return yield guild;
+    guild.users = [];
+    yield guildRepo.persist(guild);
+    return guild;
 });
 exports.listenForGuilds = (guild) => __awaiter(this, void 0, void 0, function* () {
     const maybeGuild = yield typeorm_1.getConnectionManager()

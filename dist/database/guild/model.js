@@ -14,9 +14,13 @@ const model_2 = require("./../colour/model");
 const typeorm_1 = require("typeorm");
 require("reflect-metadata");
 let Guild = class Guild {
+    constructor() {
+        this.users = [];
+    }
 };
 __decorate([
     typeorm_1.PrimaryColumn(),
+    typeorm_1.Index(),
     __metadata("design:type", String)
 ], Guild.prototype, "id", void 0);
 __decorate([
@@ -27,7 +31,8 @@ __decorate([
     __metadata("design:type", Array)
 ], Guild.prototype, "colours", void 0);
 __decorate([
-    typeorm_1.OneToMany(type => model_1.User, user => user.guild),
+    typeorm_1.ManyToMany(type => model_1.User, user => user.guilds),
+    typeorm_1.JoinColumn(),
     __metadata("design:type", Array)
 ], Guild.prototype, "users", void 0);
 __decorate([
@@ -39,6 +44,7 @@ __decorate([
     __metadata("design:type", String)
 ], Guild.prototype, "listmessage", void 0);
 Guild = __decorate([
-    typeorm_1.Entity()
+    typeorm_1.Entity(),
+    typeorm_1.Index('guild_id_index', (guild) => [guild.id])
 ], Guild);
 exports.Guild = Guild;

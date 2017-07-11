@@ -553,6 +553,7 @@ automatically updated',
         const userRepo = await this.connection.getRepository(User);
         const guildRepo = await this.connection.getRepository(Guild);
 
+
         const colour = await colourRepo.createQueryBuilder('colour')
             .innerJoin('colour.guild.id', 'guild')
             .where('colour.guild = :guildId', { guildId: message.guild.id })
@@ -561,6 +562,7 @@ automatically updated',
             { colourName: `%${parameters.named.colour}%` },
         )
             .getOne();
+
 
         const guild = await guildRepo.findOneById(message.guild.id);
 
@@ -592,7 +594,7 @@ automatically updated',
         const user = await findUser(message.author.id, guild, this.connection); 
 
         if (user == null) {
-            message.channel.send('User is not in schema: ', user);
+            message.channel.send('User is not in schema: ' + user);
             return false;
         }
 
@@ -619,10 +621,10 @@ automatically updated',
             const colourRepo = await connection.getRepository(Colour);
             const guildRepo = await connection.getRepository(Guild);
 
-            const colourList = await colourRepo.find();
 
-            if (user.colour !== undefined) {
-                const oldColour = message.guild.roles.get(user.colour.roleID);
+            const colourList = await colourRepo.find();
+            if (user.colours[0] !== undefined) {
+                const oldColour = message.guild.roles.get(user.colours[0].roleID);
                 if (oldColour === undefined) {
                     confirm(message, 'failure', 'Error setting colour!');
                     return false;
@@ -639,7 +641,7 @@ automatically updated',
 
             const updatedUser = await userRepo.persist(user);
 
-            user.colour = newColour;
+            user.colours.push(newColour);
 
             await colourRepo.persist(newColour);
             await userRepo.persist(user);
@@ -701,14 +703,8 @@ automatically updated',
             return false;
         }
 
-        const guild = await guildRepo.findOneById(message.guild.id);
-
-        if (guild === undefined) {
-            const newGuild = await createGuildIfNone(message);
-            this.setColourEntity(parameters.named.colour, newGuild, roleID, message);
-            return true;
-        }
-
+        const guild = await guildRepo.findOneById(message.guild.id)
+            || await createGuildIfNone(message);
 
         this.setColourEntity(parameters.named.colour, guild, roleID, message);
         return true;
@@ -1104,6 +1100,15 @@ automatically updated',
         return true;
     }
 
+    /**
+     * A helper utility for servers that already have colour roles.
+     * It'll loop through each role, allowing the user to specify if
+     * they want to add a role, and allows them to set a name for it.
+     * 
+     * @private
+     * @type {CommandFunction}
+     * @memberof Colourizer
+     */
     private cycleExistingRoles: CommandFunction = async (
         message,
     ) => {

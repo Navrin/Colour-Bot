@@ -17,10 +17,12 @@ let Colour = class Colour {
 };
 __decorate([
     typeorm_1.PrimaryGeneratedColumn(),
+    typeorm_1.Index(),
     __metadata("design:type", Number)
 ], Colour.prototype, "id", void 0);
 __decorate([
     typeorm_1.Column(),
+    typeorm_1.Index(),
     __metadata("design:type", String)
 ], Colour.prototype, "name", void 0);
 __decorate([
@@ -28,10 +30,11 @@ __decorate([
     __metadata("design:type", String)
 ], Colour.prototype, "roleID", void 0);
 __decorate([
-    typeorm_1.OneToMany(user => model_1.User, user => user.colour, {
+    typeorm_1.ManyToMany(type => model_1.User, user => user.colours, {
         cascadeInsert: true,
         cascadeUpdate: true,
     }),
+    typeorm_1.JoinColumn(),
     __metadata("design:type", Array)
 ], Colour.prototype, "users", void 0);
 __decorate([
@@ -39,6 +42,7 @@ __decorate([
     __metadata("design:type", model_2.Guild)
 ], Colour.prototype, "guild", void 0);
 Colour = __decorate([
-    typeorm_1.Entity()
+    typeorm_1.Entity(),
+    typeorm_1.Index('colour_id_and_name_index', (colour) => [colour.name, colour.id])
 ], Colour);
 exports.Colour = Colour;

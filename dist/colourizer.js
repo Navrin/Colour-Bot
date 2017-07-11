@@ -316,7 +316,7 @@ automatically updated',
             }
             const user = yield actions_3.findUser(message.author.id, guild, this.connection);
             if (user == null) {
-                message.channel.send('User is not in schema: ', user);
+                message.channel.send('User is not in schema: ' + user);
                 return false;
             }
             return yield this.setColourToUser(colour, this.connection, user, guild, message);
@@ -342,12 +342,8 @@ automatically updated',
                     Mention a role or redefine your search parameters.`);
                 return false;
             }
-            const guild = yield guildRepo.findOneById(message.guild.id);
-            if (guild === undefined) {
-                const newGuild = yield actions_2.createGuildIfNone(message);
-                this.setColourEntity(parameters.named.colour, newGuild, roleID, message);
-                return true;
-            }
+            const guild = (yield guildRepo.findOneById(message.guild.id))
+                || (yield actions_2.createGuildIfNone(message));
             this.setColourEntity(parameters.named.colour, guild, roleID, message);
             return true;
         });
@@ -546,6 +542,15 @@ automatically updated',
                 .catch(e => null);
             return true;
         });
+        /**
+         * A helper utility for servers that already have colour roles.
+         * It'll loop through each role, allowing the user to specify if
+         * they want to add a role, and allows them to set a name for it.
+         *
+         * @private
+         * @type {CommandFunction}
+         * @memberof Colourizer
+         */
         this.cycleExistingRoles = (message) => __awaiter(this, void 0, void 0, function* () {
             const roles = message.guild.roles;
             const { author } = message;
@@ -847,8 +852,8 @@ automatically updated',
                 const colourRepo = yield connection.getRepository(model_2.Colour);
                 const guildRepo = yield connection.getRepository(model_1.Guild);
                 const colourList = yield colourRepo.find();
-                if (user.colour !== undefined) {
-                    const oldColour = message.guild.roles.get(user.colour.roleID);
+                if (user.colours[0] !== undefined) {
+                    const oldColour = message.guild.roles.get(user.colours[0].roleID);
                     if (oldColour === undefined) {
                         confirmer_1.confirm(message, 'failure', 'Error setting colour!');
                         return false;
@@ -861,7 +866,7 @@ automatically updated',
                     .filter(id => id);
                 yield userMember.removeRoles(possibleColours);
                 const updatedUser = yield userRepo.persist(user);
-                user.colour = newColour;
+                user.colours.push(newColour);
                 yield colourRepo.persist(newColour);
                 yield userRepo.persist(user);
                 yield guildRepo.persist(guild);

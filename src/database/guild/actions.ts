@@ -4,10 +4,11 @@ import * as Discord from 'discord.js';
 
 export const createGuildIfNone = async (message: Discord.Message) => {
     try {
-        const guild = await makeGuildFromId(message.id);
+        const guild = await makeGuildFromId(message.guild.id);
         message.react('☑');
         return await guild;
     } catch (e) {
+        console.log(e);
         message.channel.send('Woah. Error creating this guild, detonating the existing? guild.');
         const guildRepo = await getConnectionManager()
             .get()
@@ -33,9 +34,10 @@ const makeGuildFromId = async (id: string) => {
 
     guild.id = id;
     guild.colours = [];
+    guild.users = [];
 
-    const guilder = await guildRepo.persist(guild);
-    return await guild;
+    await guildRepo.persist(guild);
+    return guild;
 };
 
 export const listenForGuilds = async (guild: Discord.Guild) => {

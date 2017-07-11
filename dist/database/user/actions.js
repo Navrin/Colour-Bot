@@ -18,8 +18,8 @@ const createUserIfNone = (discordUser, guild, connection, colour) => __awaiter(t
         const guildRepo = yield connection.getRepository(model_3.Guild);
         const user = new model_1.User();
         user.id = discordUser.id;
-        user.colour = colour;
-        user.guild = guild;
+        user.colours = [colour];
+        user.guilds = [guild];
         yield guildRepo.persist(guild);
         yield colourRepo.persist(colour);
         yield userRepo.persist(user);
@@ -41,14 +41,28 @@ const findUser = (user, guild, connection) => __awaiter(this, void 0, void 0, fu
     //     .innerJoin('user.colour', 'colour', 'user.colour = colour.id')
     //     .where('user.id = :userid', { userid: user })
     //     .getOne();
-    const userEntity = userRepo
-        .findOne({
+    const userRecordA = yield userRepo.findOne({
         alias: 'user',
         id: user,
         innerJoinAndSelect: {
-            colour: 'user.colour',
+            guilds: 'user.guilds',
+            colours: 'user.colours',
         },
     });
-    return userEntity;
+    const userRecord = yield userRepo
+        .createQueryBuilder('user')
+        .where('user.id = :user', { user })
+        .innerJoinAndSelect('user.guilds', 'guilds')
+        .andWhere('guilds.id = :guild', { guild: guild.id })
+        .innerJoinAndSelect('user.colours', 'colours', 'colours.guild = guilds.id')
+        .getOne();
+    if (userRecord === undefined) {
+        return;
+    }
+    if (!userRecord.guilds.includes(guild)) {
+        userRecord.guilds.push(guild);
+        userRepo.persist(userRecord);
+    }
+    return userRecord;
 });
 exports.findUser = findUser;

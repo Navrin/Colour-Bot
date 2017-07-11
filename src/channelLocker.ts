@@ -72,6 +72,7 @@ class ChannelLocker {
         const guildRepo = await this.connection.getRepository(Guild);
         const guild = await guildRepo.findOneById(message.guild.id)
             || await createGuildIfNone(message);
+        
 
         if (!guild) {
             confirm(

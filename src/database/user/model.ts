@@ -1,18 +1,30 @@
 import { Guild } from './../guild/model';
-import { Entity, Column, PrimaryColumn, OneToOne, JoinColumn, ManyToOne } from 'typeorm';
+import { 
+    Entity, 
+    Column, 
+    PrimaryColumn, 
+    OneToOne, 
+    ManyToOne, 
+    ManyToMany,
+    JoinTable,
+    Index,
+} from 'typeorm';
 import { Colour } from '../colour/model';
 
 import 'reflect-metadata';
 
 @Entity()
+@Index('user_id_index', (user: User) => [user.id])
 export class User {
     @PrimaryColumn()
+    @Index()
     id: string;
 
-    @OneToOne(type => Colour)
-    @JoinColumn()
-    colour: Colour;
+    @ManyToMany(type => Colour, colour => colour.users)
+    @JoinTable()
+    colours: Colour[];
 
-    @ManyToOne(type => Guild)
-    guild: Guild;
+    @ManyToMany(type => Guild, guild => guild.users)
+    @JoinTable()
+    guilds: Guild[];
 }

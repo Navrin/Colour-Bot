@@ -17,18 +17,21 @@ let User = class User {
 };
 __decorate([
     typeorm_1.PrimaryColumn(),
+    typeorm_1.Index(),
     __metadata("design:type", String)
 ], User.prototype, "id", void 0);
 __decorate([
-    typeorm_1.OneToOne(type => model_2.Colour),
-    typeorm_1.JoinColumn(),
-    __metadata("design:type", model_2.Colour)
-], User.prototype, "colour", void 0);
+    typeorm_1.ManyToMany(type => model_2.Colour, colour => colour.users),
+    typeorm_1.JoinTable(),
+    __metadata("design:type", Array)
+], User.prototype, "colours", void 0);
 __decorate([
-    typeorm_1.ManyToOne(type => model_1.Guild),
-    __metadata("design:type", model_1.Guild)
-], User.prototype, "guild", void 0);
+    typeorm_1.ManyToMany(type => model_1.Guild, guild => guild.users),
+    typeorm_1.JoinTable(),
+    __metadata("design:type", Array)
+], User.prototype, "guilds", void 0);
 User = __decorate([
-    typeorm_1.Entity()
+    typeorm_1.Entity(),
+    typeorm_1.Index('user_id_index', (user) => [user.id])
 ], User);
 exports.User = User;

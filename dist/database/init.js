@@ -4,8 +4,11 @@ const typeorm_1 = require("typeorm");
 const entities_1 = require("./entities");
 const connectionOptions = {
     driver: {
-        type: 'sqlite',
-        storage: 'colourful.db',
+        type: 'postgres',
+        username: 'nav',
+        port: 5432,
+        host: 'localhost',
+        database: 'colourbot',
     },
     entities: [
         ...entities_1.default,
