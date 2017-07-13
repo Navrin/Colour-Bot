@@ -75,7 +75,8 @@ new Commands(prefix, client, {
     .defineCommand(colourizer.getMessageCommand())
     .generateHelp()
     .listen(async (message) => {
-        if (locker.testGuild(message) && message.author.id !== client.user.id) {
+        if (await locker.testGuild(message) 
+            && message.author.id !== client.user.id) {
             if (message.content.length <= 0) {
                 confirm(message, 'failure', 'Message body is empty!');
             }

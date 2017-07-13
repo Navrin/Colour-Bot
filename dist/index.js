@@ -73,7 +73,8 @@ new simple_discordjs_1.default(prefix, client, {
     .defineCommand(colourizer.getMessageCommand())
     .generateHelp()
     .listen((message) => __awaiter(this, void 0, void 0, function* () {
-    if (locker.testGuild(message) && message.author.id !== client.user.id) {
+    if ((yield locker.testGuild(message))
+        && message.author.id !== client.user.id) {
         if (message.content.length <= 0) {
             confirmer_1.confirm(message, 'failure', 'Message body is empty!');
         }

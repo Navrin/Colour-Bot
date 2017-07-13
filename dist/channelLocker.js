@@ -39,7 +39,8 @@ class ChannelLocker {
             if (options.authentication && options.authentication > 0) {
                 return true;
             }
-            return yield this.testGuild(message);
+            return (yield this.testGuild(message))
+                || false;
         });
         this.testGuild = (message) => __awaiter(this, void 0, void 0, function* () {
             const guildRepo = this.connection.getRepository(model_1.Guild);
@@ -52,7 +53,6 @@ class ChannelLocker {
             if (guild.channel === message.channel.id) {
                 return true;
             }
-            return false;
         });
         this.setChannel = (message, option, parameters, client) => __awaiter(this, void 0, void 0, function* () {
             const guildRepo = yield this.connection.getRepository(model_1.Guild);

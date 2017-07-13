@@ -47,7 +47,8 @@ class ChannelLocker {
                 return true;
             }
 
-            return await this.testGuild(message);
+            return await this.testGuild(message)
+                || false;
     }
 
     public testGuild = async (message: Discord.Message) => {
@@ -63,8 +64,6 @@ class ChannelLocker {
             if (guild.channel === message.channel.id) {
                 return true;
             }
-
-            return false;
     }
 
     private setChannel: CommandFunction = async (

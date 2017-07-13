@@ -94,9 +94,6 @@ and if more than one role is found, specify role name further.',
             return {
                 command: {
                     action: (message, options, params, client, self) => __awaiter(this, void 0, void 0, function* () {
-                        if (message.content.length <= 0) {
-                            confirmer_1.confirm(message, 'failure', 'No colours given, what are you expecting?');
-                        }
                         const res = new RegExp(`(.\s?)+`).exec(message.content);
                         if (res && !message.content.toLowerCase().startsWith(prefix)) {
                             yield this
@@ -108,7 +105,7 @@ and if more than one role is found, specify role name further.',
                     }),
                     names: ['colourdirty'],
                     noPrefix: true,
-                    pattern: /(?:)/,
+                    pattern: /(.\s?)+/,
                 },
                 custom: {
                     locked: true,
