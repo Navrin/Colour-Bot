@@ -19,7 +19,6 @@ const actions_3 = require("./database/user/actions");
 const yaml = require("js-yaml");
 const Discord = require("discord.js");
 const common_tags_1 = require("common-tags");
-const dispatch_1 = require("./dispatch");
 const confirmer_1 = require("./confirmer");
 const escapeStringRegexp = require("escape-string-regexp");
 const webshot = require('webshot');
@@ -95,8 +94,11 @@ and if more than one role is found, specify role name further.',
             return {
                 command: {
                     action: (message, options, params, client, self) => __awaiter(this, void 0, void 0, function* () {
+                        if (message.content.length <= 0) {
+                            confirmer_1.confirm(message, 'failure', 'No colours given, what are you expecting?');
+                        }
                         const res = new RegExp(`(.\s?)+`).exec(message.content);
-                        if (res && !message.content.startsWith(prefix)) {
+                        if (res && !message.content.toLowerCase().startsWith(prefix)) {
                             yield this
                                 .getColour(message, options, Object.assign({}, params, { named: {
                                     colour: res[0],
@@ -106,7 +108,7 @@ and if more than one role is found, specify role name further.',
                     }),
                     names: ['colourdirty'],
                     noPrefix: true,
-                    pattern: /(.\s?)+/,
+                    pattern: /(?:)/,
                 },
                 custom: {
                     locked: true,
@@ -256,10 +258,10 @@ automatically updated',
                     `);
                     return true;
                 }
-                dispatch_1.dispatch(message, 'failure', 'Channel not found!');
+                confirmer_1.dispatch(message, 'failure', 'Channel not found!');
                 return false;
             }
-            dispatch_1.dispatch(message, 'failure', 'Set a colour channel first!');
+            confirmer_1.dispatch(message, 'failure', 'Set a colour channel first!');
             return false;
         });
         /**
@@ -462,7 +464,8 @@ automatically updated',
             Type \`y\` or \`n\` to confirm continue`);
             const msg = Array.isArray(msgVec) ? msgVec[0] : msgVec;
             const replyMessage = yield this.getNextReply(message, author);
-            if (replyMessage.content.startsWith('n') || !replyMessage.content.startsWith('y')) {
+            if (replyMessage.content.toLowerCase().startsWith('n')
+                || !replyMessage.content.toLowerCase().startsWith('y')) {
                 confirmer_1.confirm(message, 'failure', 'Command was killed by calle.');
                 msg.delete();
                 replyMessage.delete();
@@ -518,7 +521,6 @@ automatically updated',
             listReply
                 .delete()
                 .catch(e => null);
-            // TODO: Create more colours with a c.cycle_existing
             msg.edit(common_tags_1.stripIndents `Alright, initiation procedures completed!
             
             To add existing roles to bot, use 
@@ -588,7 +590,7 @@ automatically updated',
             It is recommended you run this command in a mod channel.
             Would you like to continue? (\`y\` or \`n\`)`);
             const reply = yield this.getNextReply(message, author);
-            if (reply.content.startsWith('n')) {
+            if (reply.content.toLowerCase().startsWith('n')) {
                 reply.delete();
                 confirmer_1.confirm(message, 'failure', 'Function was aborted by user!');
                 return;
@@ -617,17 +619,18 @@ automatically updated',
                     : '☑️ This role looks fine!');
                 msg.edit({ embed });
                 const reply = yield this.getNextReply(message, author);
-                if (reply.content.startsWith('n')) {
+                // TODO: fix for lower case and also adjust list.
+                if (reply.content.toLowerCase().toLowerCase().startsWith('n')) {
                     reply.delete();
                     continue;
                 }
-                if (reply.content.startsWith('cancel')) {
+                if (reply.content.toLowerCase().startsWith('cancel')) {
                     confirmer_1.confirm(message, 'failure', 'Function was canceled!');
                     msg.delete();
                     reply.delete();
                     return;
                 }
-                if (reply.content.startsWith('finish')) {
+                if (reply.content.toLowerCase().startsWith('finish')) {
                     reply.delete();
                     msg.delete();
                     break;
@@ -640,11 +643,11 @@ automatically updated',
                     .addField('Cancel', 'To cancel, type =cancel', true);
                 msg.edit({ embed: setName });
                 const name = yield this.getNextReply(message, author);
-                if (name.content.startsWith('=cancel')) {
+                if (name.content.toLowerCase().startsWith('=cancel')) {
                     name.delete();
                     continue;
                 }
-                this.setColourEntity(name.content.startsWith('=default')
+                this.setColourEntity(name.content.toLowerCase().startsWith('=default')
                     ? role.name
                     : name.content, guild, role.id, name, true, true);
                 name.delete();
@@ -751,7 +754,7 @@ automatically updated',
                 .innerJoin('colour.guild', 'guild')
                 .where('colour.guild = :guildID', { guildID: message.guild.id })
                 .getMany();
-            const dom = `<html>
+            const dom = `<html style="margin: 0">
             <div id="list" style="
                 font-size: 60px; 
                 margin-top: 0;
@@ -768,8 +771,9 @@ automatically updated',
                 return `
                     <div style="width: 50%; display: flex; float: left;"> 
                         <div style="
-                            width: 50%; 
+                            width: 80%; 
                             float: left;
+                            text-align: center;
                             background-color: white;
                             color: ${colour}"> 
                             <span style="padding-left: 15px;">
@@ -777,9 +781,9 @@ automatically updated',
                             </span>
                         </div>
                         <div style="
-                            width: 50%; 
+                            width: 20%; 
                             background-color: ${colour}; 
-                            color: #${(0xFFFFFF - guildRole.color).toString(16)};
+                            color: #${(0xFFFFFF ^ guildRole.color).toString(16)};
                             float: right;"> 
                             <span style="width: 80%;">
                                 ${colour.replace('#', '')}
@@ -792,15 +796,16 @@ automatically updated',
                         float: right;
                         background-color: #36393e"> 
                         <div style="
-                            width: 50%; 
+                            width: 80%; 
+                            text-align: center;
                             float: left;
                             color: ${colour}"> 
                             ${item.name.replace('colour-', '')} 
                         </div>
                         <div style="
-                            width: 50%; 
+                            width: 20%; 
                             background-color: ${colour}; 
-                            color: #${(0xFFFFFF - guildRole.color).toString(16)};
+                            color: #${(0xFFFFFF ^ guildRole.color).toString(16)};
                             float: right;"> 
                             <span style="width: 80%;">
                                 ${colour.replace('#', '')}

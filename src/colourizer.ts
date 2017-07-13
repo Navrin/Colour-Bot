@@ -11,9 +11,8 @@ import { createUserIfNone, findUser } from './database/user/actions';
 import * as yaml from 'js-yaml';
 import * as Discord from 'discord.js';
 import { stripIndents, oneLineTrim } from 'common-tags';
-import { dispatch } from './dispatch';
+import { dispatch, confirm } from './confirmer';
 import { JSDOM } from 'jsdom';
-import { confirm } from './confirmer';
 import escapeStringRegexp = require('escape-string-regexp');
 
 
@@ -110,8 +109,12 @@ and if more than one role is found, specify role name further.',
         return {
             command: {
                 action: async (message, options, params, client, self) => {
+                    if (message.content.length <= 0) {
+                        confirm(message, 'failure', 'No colours given, what are you expecting?');
+                    }
+
                     const res = new RegExp(`(.\s?)+`).exec(message.content);
-                    if (res && !message.content.startsWith(prefix)) {
+                    if (res && !message.content.toLowerCase().startsWith(prefix)) {
                         await this
                             .getColour(
                             message,
@@ -130,7 +133,7 @@ and if more than one role is found, specify role name further.',
                 },
                 names: ['colourdirty'],
                 noPrefix: true,
-                pattern: /(.\s?)+/,
+                pattern: /(?:)/,
             },
             custom: {
                 locked: true,
@@ -435,7 +438,7 @@ automatically updated',
 
 
         const dom =
-            `<html>
+            `<html style="margin: 0">
             <div id="list" style="
                 font-size: 60px; 
                 margin-top: 0;
@@ -453,8 +456,9 @@ automatically updated',
                 return `
                     <div style="width: 50%; display: flex; float: left;"> 
                         <div style="
-                            width: 50%; 
+                            width: 80%; 
                             float: left;
+                            text-align: center;
                             background-color: white;
                             color: ${colour}"> 
                             <span style="padding-left: 15px;">
@@ -462,9 +466,9 @@ automatically updated',
                             </span>
                         </div>
                         <div style="
-                            width: 50%; 
+                            width: 20%; 
                             background-color: ${colour}; 
-                            color: #${(0xFFFFFF - guildRole.color).toString(16)};
+                            color: #${(0xFFFFFF ^ guildRole.color).toString(16)};
                             float: right;"> 
                             <span style="width: 80%;">
                                 ${colour.replace('#', '')}
@@ -477,15 +481,16 @@ automatically updated',
                         float: right;
                         background-color: #36393e"> 
                         <div style="
-                            width: 50%; 
+                            width: 80%; 
+                            text-align: center;
                             float: left;
                             color: ${colour}"> 
                             ${item.name.replace('colour-', '')} 
                         </div>
                         <div style="
-                            width: 50%; 
+                            width: 20%; 
                             background-color: ${colour}; 
-                            color: #${(0xFFFFFF - guildRole.color).toString(16)};
+                            color: #${(0xFFFFFF ^ guildRole.color).toString(16)};
                             float: right;"> 
                             <span style="width: 80%;">
                                 ${colour.replace('#', '')}
@@ -522,7 +527,6 @@ automatically updated',
         const newMsgResolve = await message.channel.send({ file: img });
 
         const newMessage = (Array.isArray(newMsgResolve)) ? newMsgResolve[0] : newMsgResolve;
-
         guild.listmessage = newMessage.id;
         guildRepo.persist(guild);
 
@@ -977,7 +981,8 @@ automatically updated',
 
         const replyMessage = await this.getNextReply(message, author);
 
-        if (replyMessage.content.startsWith('n') || !replyMessage.content.startsWith('y')) {
+        if (replyMessage.content.toLowerCase().startsWith('n') 
+            || !replyMessage.content.toLowerCase().startsWith('y')) {
             confirm(message, 'failure', 'Command was killed by calle.');
             msg.delete();
             replyMessage.delete();
@@ -1067,7 +1072,6 @@ automatically updated',
         listReply
             .delete()
             .catch(e => null);
-        // TODO: Create more colours with a c.cycle_existing
 
         msg.edit(
             stripIndents`Alright, initiation procedures completed!
@@ -1166,7 +1170,7 @@ automatically updated',
 
         const reply = await this.getNextReply(message, author);
 
-        if (reply.content.startsWith('n')) {
+        if (reply.content.toLowerCase().startsWith('n')) {
             reply.delete();
             confirm(message, 'failure', 'Function was aborted by user!');
             return;
@@ -1208,19 +1212,20 @@ automatically updated',
             msg.edit({ embed });
 
             const reply = await this.getNextReply(message, author);
-            if (reply.content.startsWith('n')) {
+            // TODO: fix for lower case and also adjust list.
+            if (reply.content.toLowerCase().toLowerCase().startsWith('n')) {
                 reply.delete();
                 continue;
             }
 
-            if (reply.content.startsWith('cancel')) {
+            if (reply.content.toLowerCase().startsWith('cancel')) {
                 confirm(message, 'failure', 'Function was canceled!');
                 msg.delete();
                 reply.delete();
                 return;
             }
 
-            if (reply.content.startsWith('finish')) {
+            if (reply.content.toLowerCase().startsWith('finish')) {
                 reply.delete();
                 msg.delete();
                 break;
@@ -1239,13 +1244,13 @@ automatically updated',
 
             const name = await this.getNextReply(message, author);
 
-            if (name.content.startsWith('=cancel')) {
+            if (name.content.toLowerCase().startsWith('=cancel')) {
                 name.delete();
                 continue;
             }
 
             this.setColourEntity(
-                name.content.startsWith('=default') 
+                name.content.toLowerCase().startsWith('=default') 
                     ? role.name
                     : name.content,
                 guild,

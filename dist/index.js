@@ -1,4 +1,12 @@
 "use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 // tslint:disable:import-name
 const simple_discordjs_1 = require("simple-discordjs");
@@ -7,6 +15,7 @@ const colourizer_1 = require("./colourizer");
 const settings = require('../botConfig.json');
 const utils_1 = require("./utils");
 require("./database/init");
+const confirmer_1 = require("./confirmer");
 const channelLocker_1 = require("./channelLocker");
 const actions_1 = require("./database/guild/actions");
 const limiter = new simple_discordjs_1.RateLimiter(5, 10);
@@ -22,7 +31,7 @@ client.on('ready', () => {
     console.log('I\'m alive!');
 });
 process.on('unhandledRejection', (e) => {
-    console.error(e, e.stack);
+    console.error('Uncaught promise error: \n' + e.stack);
 });
 const prefix = settings.prefix || process.env.COLOUR_BOT_PREFIX || 'c.';
 client.on('guildCreate', (guild) => {
@@ -63,4 +72,10 @@ new simple_discordjs_1.default(prefix, client, {
     .defineCommand(colourizer.getCycleExistingCommand())
     .defineCommand(colourizer.getMessageCommand())
     .generateHelp()
-    .listen();
+    .listen((message) => __awaiter(this, void 0, void 0, function* () {
+    if (locker.testGuild(message) && message.author.id !== client.user.id) {
+        if (message.content.length <= 0) {
+            confirmer_1.confirm(message, 'failure', 'Message body is empty!');
+        }
+    }
+}));

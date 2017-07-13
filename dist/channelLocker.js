@@ -39,6 +39,9 @@ class ChannelLocker {
             if (options.authentication && options.authentication > 0) {
                 return true;
             }
+            return yield this.testGuild(message);
+        });
+        this.testGuild = (message) => __awaiter(this, void 0, void 0, function* () {
             const guildRepo = this.connection.getRepository(model_1.Guild);
             const guild = (yield guildRepo.findOneById(message.guild.id))
                 || (yield actions_1.createGuildIfNone(message));

@@ -10,7 +10,6 @@ const connectionOptions: ConnectionOptions = {
     autoMigrationsRun: true,
 };
 
-
 const connectionManager = getConnectionManager();
 export default connectionManager.createAndConnect(connectionOptions)
     .catch(e => console.log(e));

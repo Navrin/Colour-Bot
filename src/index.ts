@@ -9,6 +9,7 @@ const settings: {
 } = require('../botConfig.json');
 import { getInviteLinkDescriber } from './utils';
 import './database/init';
+import { confirm } from './confirmer';
 import ChannelLocker from './channelLocker';
 import { listenForGuilds } from './database/guild/actions';
 const limiter = new RateLimiter(5, 10);
@@ -26,7 +27,7 @@ client.on('ready', () => {
 });
 
 process.on('unhandledRejection', (e: any) => {
-    console.error(e, e.stack);
+    console.error('Uncaught promise error: \n' + e.stack);
 });
 
 const prefix = settings.prefix || process.env.COLOUR_BOT_PREFIX || 'c.';
@@ -73,5 +74,11 @@ new Commands(prefix, client, {
     .defineCommand(colourizer.getCycleExistingCommand())
     .defineCommand(colourizer.getMessageCommand())
     .generateHelp()
-    .listen();
+    .listen(async (message) => {
+        if (locker.testGuild(message) && message.author.id !== client.user.id) {
+            if (message.content.length <= 0) {
+                confirm(message, 'failure', 'Message body is empty!');
+            }
+        }
+    });
 

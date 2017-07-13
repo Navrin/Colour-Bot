@@ -3,7 +3,7 @@ import { User } from './model';
 import { Connection } from 'typeorm';
 import { Colour } from '../colour/model';
 import { Guild } from '../guild/model';
-import { dispatch } from '../../dispatch';
+import { dispatch } from '../../confirmer';
 
 type CreateUserFunc = (
         discordUser: Discord.User,

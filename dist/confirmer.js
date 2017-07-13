@@ -30,3 +30,42 @@ const confirm = (message, type, reason, options = {
     }
 });
 exports.confirm = confirm;
+const dispatch = (message, content, messageOptions, options) => __awaiter(this, void 0, void 0, function* () {
+    const opts = (options != null)
+        ? Object.assign({ edit: false, delay: 3000, delete: true }, options) : { edit: false, delay: 3000, delete: true };
+    if (opts.edit) {
+        const msg = yield message.edit(content, messageOptions);
+        if (opts.delete) {
+            msg.delete(opts.delay);
+            message.delete(opts.delay);
+        }
+        return msg;
+    }
+    if (content != null) {
+        const msg = yield message.channel.send(content, messageOptions);
+        if (Array.isArray(msg)) {
+            msg.forEach(message => message.delete(opts.delay));
+            message.delete(opts.delay);
+            return msg;
+        }
+        if (opts.delete) {
+            msg.delete(opts.delay);
+            message.delete(opts.delay);
+        }
+        return msg;
+    }
+    const msg = yield message.channel.send(messageOptions);
+    if (Array.isArray(msg)) {
+        msg.forEach(message => message.delete(opts.delay));
+        if (opts.delete) {
+            message.delete(opts.delay);
+        }
+        return msg;
+    }
+    if (opts.delete) {
+        msg.delete(opts.delay);
+        message.delete(opts.delay);
+    }
+    return msg;
+});
+exports.dispatch = dispatch;

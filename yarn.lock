@@ -28,8 +28,8 @@
   resolved "https://registry.yarnpkg.com/@types/ip/-/ip-0.0.30.tgz#60c3309ce1cecdd7293245bbffc201ecb6f8c344"
 
 "@types/js-yaml@^3.5.30":
-  version "3.5.31"
-  resolved "https://registry.yarnpkg.com/@types/js-yaml/-/js-yaml-3.5.31.tgz#54aeb8bcaaf94a7b1a64311bc318dbfe601a593a"
+  version "3.9.0"
+  resolved "https://registry.yarnpkg.com/@types/js-yaml/-/js-yaml-3.9.0.tgz#cf82d31326251e8e94848d98a0665875928cdae6"
 
 "@types/jsdom@^11.0.1":
   version "11.0.1"
@@ -50,16 +50,16 @@
     "@types/node" "*"
 
 "@types/node@*":
-  version "8.0.9"
-  resolved "https://registry.yarnpkg.com/@types/node/-/node-8.0.9.tgz#19f44c3b6cb8a70d261d366f73650e3e3891ab2d"
+  version "8.0.11"
+  resolved "https://registry.yarnpkg.com/@types/node/-/node-8.0.11.tgz#3cf80de7185292c6dab156ece696dffed0cc3502"
 
 "@types/node@^6.0.46":
-  version "6.0.79"
-  resolved "https://registry.yarnpkg.com/@types/node/-/node-6.0.79.tgz#5efe7d4a6d8c453c7e9eaf55d931f4a22fac5169"
+  version "6.0.81"
+  resolved "https://registry.yarnpkg.com/@types/node/-/node-6.0.81.tgz#7a69740341b54a5b0c802289d852962cc5d2fd83"
 
 "@types/node@^7.0.29":
-  version "7.0.33"
-  resolved "https://registry.yarnpkg.com/@types/node/-/node-7.0.33.tgz#ae3c53ad01d7e9d62c7f1a85c5f7500d59b9d25b"
+  version "7.0.35"
+  resolved "https://registry.yarnpkg.com/@types/node/-/node-7.0.35.tgz#04b7f487146619c685440c3428b51c5257ffa7a6"
 
 "@types/serve-static@*":
   version "1.7.31"
@@ -2049,8 +2049,8 @@ simple-discordjs@^1.5.11:
     typeorm "^0.0.11"
 
 snekfetch@^3.1.0:
-  version "3.2.3"
-  resolved "https://registry.yarnpkg.com/snekfetch/-/snekfetch-3.2.3.tgz#63c6fe27e44f1303c5d95cfb7642f840813cc334"
+  version "3.2.4"
+  resolved "https://registry.yarnpkg.com/snekfetch/-/snekfetch-3.2.4.tgz#74fed1f0530e312e5b08ecb189a529c14727afaf"
 
 sntp@1.x.x:
   version "1.0.9"
@@ -2338,8 +2338,8 @@ tsutils@^1.4.0:
   resolved "https://registry.yarnpkg.com/tsutils/-/tsutils-1.9.1.tgz#b9f9ab44e55af9681831d5f28d0aeeaf5c750cb0"
 
 tsutils@^2.5.0, tsutils@^2.5.1:
-  version "2.5.1"
-  resolved "https://registry.yarnpkg.com/tsutils/-/tsutils-2.5.1.tgz#c2001390c79eec1a5ccfa7ac12d599639683e0cf"
+  version "2.6.1"
+  resolved "https://registry.yarnpkg.com/tsutils/-/tsutils-2.6.1.tgz#98ecf009594f4e4af884057be4cf41a450bc7637"
   dependencies:
     tslib "^1.7.1"
 

@@ -35,32 +35,36 @@ class ChannelLocker {
     }    
 
     lock: MiddlewareFunction = async (message, options) => {
-        if ('custom' in options && !options.custom.locked) {
-            return true;
-        }
+            if ('custom' in options && !options.custom.locked) {
+                return true;
+            }
 
-        if (!('custom' in options)) {
-            return true;
-        }
+            if (!('custom' in options)) {
+                return true;
+            }
 
-        if (options.authentication && options.authentication > 0) {
-            return true;
-        }
+            if (options.authentication && options.authentication > 0) {
+                return true;
+            }
 
-        const guildRepo = this.connection.getRepository(Guild);        
-        const guild = await guildRepo.findOneById(message.guild.id)
-            || await createGuildIfNone(message);
+            return await this.testGuild(message);
+    }
 
-        if (!guild) {
-            confirm(message, 'failure', 'Error when finding guild.');
+    public testGuild = async (message: Discord.Message) => {
+            const guildRepo = this.connection.getRepository(Guild);        
+            const guild = await guildRepo.findOneById(message.guild.id)
+                || await createGuildIfNone(message);
+
+            if (!guild) {
+                confirm(message, 'failure', 'Error when finding guild.');
+                return false;
+            }
+
+            if (guild.channel === message.channel.id) {
+                return true;
+            }
+
             return false;
-        }
-
-        if (guild.channel === message.channel.id) {
-            return true;
-        }
-
-        return false;
     }
 
     private setChannel: CommandFunction = async (
