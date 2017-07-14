@@ -1,10 +1,14 @@
 import { getConnectionManager, ConnectionOptions } from 'typeorm';
-import entities from './entities';
+import { Colour } from './colour';
+import { Guild } from './guild';
+import { User } from './user';
 
 const connectionOptions: ConnectionOptions = {
     driver: require('../../typeorm.json'),
     entities: [
-        ...entities,
+        Colour,
+        Guild,
+        User,
     ],
     autoSchemaSync: true,
     autoMigrationsRun: true,

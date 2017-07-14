@@ -8,7 +8,7 @@ const settings: {
     prefix: string,
 } = require('../botConfig.json');
 import { getInviteLinkDescriber } from './utils';
-import './database/init';
+import './models/__init';
 import { confirm } from './confirmer';
 import ChannelLocker from './channelLocker';
 import { listenForGuilds } from './database/guild/actions';
