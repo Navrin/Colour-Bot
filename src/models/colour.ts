@@ -1,5 +1,5 @@
-import { User } from './../user/model';
-import { Guild } from './../guild/model';
+import { User } from './user';
+import { Guild } from './guild';
 import { 
     Entity, 
     Column, 
@@ -26,13 +26,6 @@ export class Colour {
 
     @Column()
     roleID: string;
-
-    @ManyToMany(type => User, user => user.colours, {
-        cascadeInsert: true,
-        cascadeUpdate: true,
-    })
-    @JoinColumn()
-    users: User[];
 
     @ManyToOne(type => Guild, guild => guild.colours)
     guild: Guild;

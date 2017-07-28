@@ -1,85 +1,115 @@
+import { getConnectionManager, getConnection } from 'typeorm';
 // tslint:disable:import-name
+import connection from './models/__init';
 import Commands, { RateLimiter, Auth } from 'simple-discordjs';
 import * as Discord from 'discord.js';
 import Colourizer from './colourizer';
 const settings: {
     token?: string,
     superuser?: string,
-    prefix: string,
+    prefix?: string,
 } = require('../botConfig.json');
 import { getInviteLinkDescriber } from './utils';
-import './models/__init';
 import { confirm } from './confirmer';
 import ChannelLocker from './channelLocker';
-import { listenForGuilds } from './database/guild/actions';
+import GuildHelper from './helpers/GuildHelper';
+import { stripIndents } from 'common-tags';
+
+import * as Bluebird from 'bluebird';
+
+Bluebird.config({
+    longStackTraces: true,
+});
+
+global.Promise = Bluebird;
+
 const limiter = new RateLimiter(5, 10);
 const client = new Discord.Client();
-const colourizer = new Colourizer();
 const auth = new Auth(settings.superuser || process.env.COLOUR_BOT_SUPERUSER, {
     deleteMessageDelay: 1000,
     deleteMessages: true,
 });
-const locker = new ChannelLocker();
 
 client.login(settings.token || process.env.COLOUR_BOT_TOKEN);
-client.on('ready', () => {
-    console.log('I\'m alive!');
+
+process.on('unhandledRejection', (e: Error) => {
+    console.error('Uncaught promise error: \n' + e.stack);
 });
 
-process.on('unhandledRejection', (e: any) => {
-    console.error('Uncaught promise error: \n' + e.stack);
+process.on('error', (e: Error) => {
+    console.error('Uncaught error at: ', e.stack);
 });
 
 const prefix = settings.prefix || process.env.COLOUR_BOT_PREFIX || 'c.';
 
-client.on('guildCreate', (guild) => {
-    listenForGuilds(guild);
-    const owner = guild.owner;
-    owner.send(
-// tslint:disable-next-line:max-line-length
-`
-Hey! Thanks for adding me onto your server. I'll be able to manage and handle the creation of new colours, provided I have the right permissions!
-
-To get started, find a mod channel and begin the server initiation with 
-\`${prefix}init\`
-
-(use ${prefix}help to see all of the commands.)
-`);
-});
-
-
-new Commands(prefix, client, {
-    deleteCommandMessage: false,
-    deleteMessageDelay: 2000,
-    botType: 'normal',
-    killErrorMessages: true,
-})
-    .use(auth.authenticate)
-    .use(locker.lock)
-    .use(limiter.protect)
-    .defineCommand(getInviteLinkDescriber())
-    .defineCommand(auth.getCommand())
-    .defineCommand(locker.getSetChannelLock())
-    .defineCommand(colourizer.guardChannel(prefix))
-    // uses m8 regex to allow for the colours to be called without any prefix
-    // only in some channels though.
-    .defineCommand(colourizer.getInitiateCommand())
-    .defineCommand(colourizer.getSetCommand())
-    .defineCommand(colourizer.getDirtyColourCommand(prefix))
-    .defineCommand(colourizer.getColourCommand())
-    .defineCommand(colourizer.getDeleteColour())
-    .defineCommand(colourizer.getGenerateColours())
-    .defineCommand(colourizer.getQuickColourCommand())
-    .defineCommand(colourizer.getListCommand())
-    .defineCommand(colourizer.getCycleExistingCommand())
-    .defineCommand(colourizer.getMessageCommand())
-    .generateHelp()
-    .listen(async (message) => {
-        if (await locker.testGuild(message) 
-            && message.author.id !== client.user.id) {
-            if (message.content.length <= 0) {
-                confirm(message, 'failure', 'Message body is empty!');
+client.on('ready', () => {
+    console.log('I\'m alive!');
+    connection
+        .then(async (connection) => {
+            if (!connection) {
+                throw new Error('DATABASE CONNECTION FAILURE.');
             }
-        }
-    });
 
+            const guildHelper = new GuildHelper(connection);
+
+            client.on('guildCreate', (guild) => {
+                const guildEntity = guildHelper.findOrCreateGuild(guild.id);
+                const { owner } = guild;
+                owner.send(
+                    // tslint:disable-next-line:max-line-length
+                    stripIndents`
+                    Hey! Thanks for adding me onto your server. I'll be able to manage and handle the creation of new colours, provided I have the right permissions!
+        
+                    To get started, find a mod channel and begin the server initiation with 
+                    \`${prefix}init\`
+                    
+                    (use \`${prefix}help\` to see all of the commands.)
+                `);
+            });
+            for (const [id, guild] of client.guilds) {
+                await guildHelper.findOrCreateGuild(id);
+            }
+
+
+            const colourizer = new Colourizer();
+            const locker = new ChannelLocker(connection);
+
+            new Commands(prefix, client, {
+                deleteCommandMessage: false,
+                deleteMessageDelay: 2000,
+                botType: 'normal',
+                killErrorMessages: true,
+            })
+                .use(auth.authenticate)
+                .use(locker.lock)
+                .use(limiter.protect)
+                .defineCommand(getInviteLinkDescriber())
+                .defineCommand(auth.getCommand())
+                .defineCommand(locker.getSetChannelLock())
+                .defineCommand(colourizer.guardChannel(prefix))
+                // uses m8 regex to allow for the colours to be called without any prefix
+                // only in some channels though.
+                .defineCommand(colourizer.getInitiateCommand())
+                .defineCommand(colourizer.getSetCommand())
+                .defineCommand(colourizer.getDirtyColourCommand(prefix))
+                .defineCommand(colourizer.getColourCommand())
+                .defineCommand(colourizer.getDeleteColour())
+                .defineCommand(colourizer.getGenerateColours())
+                .defineCommand(colourizer.getQuickColourCommand())
+                .defineCommand(colourizer.getListCommand())
+                .defineCommand(colourizer.getCycleExistingCommand())
+                .defineCommand(colourizer.getMessageCommand())
+                .generateHelp()
+                .listen(async (message) => {
+                    if (message.channel.type !== 'dm'
+                        && message.author.id !== client.user.id
+                        && await locker.testGuild(message)) {
+
+                        if (message.content.length <= 0) {
+                            confirm(message, 'failure', 'Message body is empty!');
+                        }
+
+                    }
+                });
+        });
+});

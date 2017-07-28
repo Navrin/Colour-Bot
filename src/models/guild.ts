@@ -1,5 +1,5 @@
-import { User } from './../user/model';
-import { Colour } from './../colour/model';
+import { User } from './user';
+import { Colour } from './colour';
 import { Entity, PrimaryColumn, OneToMany, ManyToMany, Column, JoinColumn, Index } from 'typeorm';
 import 'reflect-metadata';
 
@@ -16,7 +16,10 @@ export class Guild {
     })
     colours: Colour[];
 
-    @ManyToMany(type => User, user => user.guilds)
+    @ManyToMany(type => User, user => user.guilds, {
+        cascadeInsert: true,
+        cascadeUpdate: true,
+    })
     @JoinColumn()
     users: User[] = [];
 
@@ -25,4 +28,7 @@ export class Guild {
 
     @Column('string', { nullable: true })
     listmessage?: string;
+
+    @Column('string', { nullable: true })
+    helpmessage?: string;
 }

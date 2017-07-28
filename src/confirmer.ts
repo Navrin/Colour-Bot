@@ -27,7 +27,7 @@ const confirm = async (
     },
 ) => {
     message.react(statusCodes[type]);
-    if (reason) {
+    if (reason && type === 'failure') {
         const replyMessage = await message.reply(`**Alert:** ${reason}`);
         if (options.delete) {
             const reply = Array.isArray(replyMessage) ? replyMessage[0] : replyMessage;

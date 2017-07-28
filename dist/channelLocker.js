@@ -9,12 +9,11 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const simple_discordjs_1 = require("simple-discordjs");
-const model_1 = require("./database/guild/model");
-const typeorm_1 = require("typeorm");
-const actions_1 = require("./database/guild/actions");
 const confirmer_1 = require("./confirmer");
+const GuildHelper_1 = require("./helpers/GuildHelper");
+const GuildController_1 = require("./controllers/GuildController");
 class ChannelLocker {
-    constructor() {
+    constructor(connection) {
         this.getSetChannelLock = () => {
             return {
                 command: {
@@ -39,13 +38,10 @@ class ChannelLocker {
             if (options.authentication && options.authentication > 0) {
                 return true;
             }
-            return (yield this.testGuild(message))
-                || false;
+            return (yield this.testGuild(message)) || false;
         });
         this.testGuild = (message) => __awaiter(this, void 0, void 0, function* () {
-            const guildRepo = this.connection.getRepository(model_1.Guild);
-            const guild = (yield guildRepo.findOneById(message.guild.id))
-                || (yield actions_1.createGuildIfNone(message));
+            const guild = yield this.guildHelper.findOrCreateGuild(message.guild.id);
             if (!guild) {
                 confirmer_1.confirm(message, 'failure', 'Error when finding guild.');
                 return false;
@@ -55,16 +51,16 @@ class ChannelLocker {
             }
         });
         this.setChannel = (message, option, parameters, client) => __awaiter(this, void 0, void 0, function* () {
-            const guildRepo = yield this.connection.getRepository(model_1.Guild);
-            const guild = (yield guildRepo.findOneById(message.guild.id))
-                || (yield actions_1.createGuildIfNone(message));
+            const guild = yield this.guildHelper.findOrCreateGuild(message.guild.id);
             if (!guild) {
                 confirmer_1.confirm(message, 'failure', 'Error when getting guild, please contact your bot maintainer');
                 return false;
             }
             if (message.mentions.channels.first()) {
                 const channels = message.mentions.channels;
-                guild.channel = channels.first().id;
+                this.guildController.update(guild.id, {
+                    channel: channels.first().id,
+                });
             }
             else {
                 const channel = message.guild.channels.find('name', parameters.named.channel);
@@ -72,13 +68,16 @@ class ChannelLocker {
                     confirmer_1.confirm(message, 'failure', 'No channel found with the name' + parameters.named.channel);
                     return false;
                 }
-                guild.channel = channel.id;
+                this.guildController.update(guild.id, {
+                    channel: channel.id,
+                });
             }
-            yield guildRepo.persist(guild);
             confirmer_1.confirm(message, 'success');
             return true;
         });
-        this.connection = typeorm_1.getConnectionManager().get();
+        this.connection = connection;
+        this.guildHelper = new GuildHelper_1.default(this.connection);
+        this.guildController = new GuildController_1.default(this.connection);
     }
 }
 exports.default = ChannelLocker;

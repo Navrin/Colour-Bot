@@ -1,22 +1,25 @@
 import * as Discord from 'discord.js';
-import { 
-    CommandFunction, 
-    CommandDefinition, 
-    RoleTypes, 
+import {
+    CommandFunction,
+    CommandDefinition,
+    RoleTypes,
     MiddlewareFunction,
 } from 'simple-discordjs';
-import { Guild } from './database/guild/model';
-import { Connection, getConnectionManager} from 'typeorm';
-import { createGuildIfNone } from './database/guild/actions';
+import { Connection, getConnectionManager } from 'typeorm';
 import { confirm } from './confirmer';
+import GuildHelper from './helpers/GuildHelper';
+import GuildController from './controllers/GuildController';
 
 export default
 class ChannelLocker {
+    guildHelper: GuildHelper;
+    guildController: GuildController;
     connection: Connection;
-    
 
-    constructor() {
-        this.connection = getConnectionManager().get();
+    constructor(connection: Connection) {
+        this.connection = connection;
+        this.guildHelper = new GuildHelper(this.connection);
+        this.guildController = new GuildController(this.connection);
     }
 
     public getSetChannelLock = (): CommandDefinition => {
@@ -32,55 +35,49 @@ class ChannelLocker {
                 example: '{{{prefix}}}setchannel #colour-requests',
             },
         };
-    }    
+    }
 
     lock: MiddlewareFunction = async (message, options) => {
-            if ('custom' in options && !options.custom.locked) {
-                return true;
-            }
+        if ('custom' in options && !options.custom.locked) {
+            return true;
+        }
 
-            if (!('custom' in options)) {
-                return true;
-            }
+        if (!('custom' in options)) {
+            return true;
+        }
 
-            if (options.authentication && options.authentication > 0) {
-                return true;
-            }
+        if (options.authentication && options.authentication > 0) {
+            return true;
+        }
 
-            return await this.testGuild(message)
-                || false;
+        return await this.testGuild(message) || false;
     }
 
     public testGuild = async (message: Discord.Message) => {
-            const guildRepo = this.connection.getRepository(Guild);        
-            const guild = await guildRepo.findOneById(message.guild.id)
-                || await createGuildIfNone(message);
+        const guild = await this.guildHelper.findOrCreateGuild(message.guild.id);
 
-            if (!guild) {
-                confirm(message, 'failure', 'Error when finding guild.');
-                return false;
-            }
+        if (!guild) {
+            confirm(message, 'failure', 'Error when finding guild.');
+            return false;
+        }
 
-            if (guild.channel === message.channel.id) {
-                return true;
-            }
+        if (guild.channel === message.channel.id) {
+            return true;
+        }
     }
 
     private setChannel: CommandFunction = async (
-        message, 
-        option, 
-        parameters: { array: string[], named: { channel: string} }, 
+        message,
+        option,
+        parameters: { array: string[], named: { channel: string } },
         client,
     ) => {
-        const guildRepo = await this.connection.getRepository(Guild);
-        const guild = await guildRepo.findOneById(message.guild.id)
-            || await createGuildIfNone(message);
-        
+        const guild = await this.guildHelper.findOrCreateGuild(message.guild.id);
 
         if (!guild) {
             confirm(
-                message, 
-                'failure', 
+                message,
+                'failure',
                 'Error when getting guild, please contact your bot maintainer',
             );
             return false;
@@ -89,7 +86,9 @@ class ChannelLocker {
         if (message.mentions.channels.first()) {
             const channels = message.mentions.channels;
 
-            guild.channel = channels.first().id;
+            this.guildController.update(guild.id, {
+                channel: channels.first().id,
+            });
         } else {
             const channel = message.guild.channels.find('name', parameters.named.channel);
             if (!channel) {
@@ -101,10 +100,11 @@ class ChannelLocker {
                 return false;
             }
 
-            guild.channel = channel.id;
+            this.guildController.update(guild.id, {
+                channel: channel.id,
+            });
         }
 
-        await guildRepo.persist(guild);        
         confirm(message, 'success');
         return true;
     }

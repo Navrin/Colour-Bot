@@ -1,4 +1,5 @@
-import { Guild } from './../guild/model';
+import { Guild } from './guild';
+import { Colour } from './colour';
 import { 
     Entity, 
     Column, 
@@ -9,7 +10,6 @@ import {
     JoinTable,
     Index,
 } from 'typeorm';
-import { Colour } from '../colour/model';
 
 import 'reflect-metadata';
 
@@ -20,11 +20,7 @@ export class User {
     @Index()
     id: string;
 
-    @ManyToMany(type => Colour, colour => colour.users)
-    @JoinTable()
-    colours: Colour[];
-
     @ManyToMany(type => Guild, guild => guild.users)
     @JoinTable()
-    guilds: Guild[];
+    guilds: Guild[] = [];
 }

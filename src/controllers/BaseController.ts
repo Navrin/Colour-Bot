@@ -22,7 +22,7 @@ interface Controller<T> {
      * @returns {(Promise<T | undefined>)} 
      * @memberof Controller
      */
-    find(identifer: any): Promise<T | undefined>;
+    find(identifer: any, payload: any): Promise<T | undefined>;
 
     /**
      * Find an entitiy based on it's ID, usaully the primary column.

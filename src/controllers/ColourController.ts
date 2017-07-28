@@ -1,6 +1,6 @@
-import { Controller } from './baseController';
-import { Colour } from '../database/colour/model';
-import { Guild } from '../database/guild/model';
+import { Controller } from './BaseController';
+import { Colour } from '../models/colour';
+import { Guild } from '../models/guild';
 import { getConnectionManager, Connection, Repository } from 'typeorm';
 
 interface ColourUpdateOptions {
@@ -26,10 +26,11 @@ class ColourController implements Controller<Colour> {
      * @param {Guild} guild 
      * @memberof ColourController
      */
-    constructor(guild: Guild) {
-        this.connection = getConnectionManager().get();
+    constructor(connection: Connection, guild: Guild) {
+        this.connection = connection;
         this.guildRepo = this.connection.getRepository(Guild);
         this.colourRepo = this.connection.getRepository(Colour);
+        this.guild = guild;
     }
     
     /**
@@ -39,13 +40,11 @@ class ColourController implements Controller<Colour> {
      * @memberof ColourController
      */
     async index() {
-        const guildEntity = await this.guildRepo.findOne({
-            alias: 'guild',
-            id: this.guild.id,
-            innerJoinAndSelect: {
-                colours: 'guild.colours',
-            },
-        });
+        const guildEntity = await this.guildRepo
+            .createQueryBuilder('guild')
+            .where('guild.id = :guild', { guild: this.guild.id })
+            .innerJoinAndSelect('guild.colours', 'colour', 'colour.guild = guild.id')
+            .getOne();
 
         if (guildEntity == null) {
             throw new TypeError('Guild does not exist!');
@@ -67,21 +66,26 @@ class ColourController implements Controller<Colour> {
     }
 
     /**
-     * Find a given colour based on its name.
-     * Matches very loosely, will find the closest match.
+     * Find a given colour based on its name or roleID.
+     * Names match very loosely, will find the closest match.
+     * 
      * 
      * @param {string} name 
      * @returns 
      * @memberof ColourController
      */
-    async find(name: string) {
-        const colour = await this.colourRepo
-            .createQueryBuilder('colour')
-            .where('colour.guild = :guild', { guild: this.guild.id })
-            .andWhere('colour.name LIKE :colour', { colour: `%${name}%` })
-            .getOne();
+    async find({ name, roleID }: { name?: string, roleID?: string }) {
+        if (name) {
+            return await this.colourRepo
+                .createQueryBuilder('colour')
+                .where('colour.guild = :guild', { guild: this.guild.id })
+                .andWhere('colour.name ILIKE :colour', { colour: `%${name}%` })
+                .getOne();
+        }
         
-        return colour;
+        return await this.colourRepo.findOne({
+            roleID,
+        });
     }
 
     /**
@@ -97,7 +101,6 @@ class ColourController implements Controller<Colour> {
         colour.roleID = payload.roleID;
         colour.name = payload.name;
         colour.guild = this.guild;
-        colour.users = [];
         
         const colourEntity = await this.colourRepo.persist(colour);
         const updatedGuildEntity = await this.guildRepo.persist(this.guild);
@@ -116,18 +119,23 @@ class ColourController implements Controller<Colour> {
      * @memberof ColourController
      */
     async update(id: number, details: ColourUpdateOptions) {
-        const colour = await this.colourRepo.findOneById(id);
+        const colour: (Colour & { [key: string]: any }) | undefined 
+            = await this.colourRepo.findOneById(id);
 
         if (colour == null) {
             throw new TypeError('Colour does not exist!');
         }
 
-        const payload = {
-            ...colour,
-            ...details,
-        };
+        for (const [key, value] of Object.entries(details)) {
+            if (Array.isArray(value)) {
+                // merge the original guild value array with the payload array.
+                colour[key] = [...colour[key], ...value];
+            } else {
+                colour[key] = value;
+            }
+        }
 
-        const updatedColour = await this.colourRepo.preload(payload);
+        const updatedColour = await this.colourRepo.persist(colour);
         return updatedColour;
     }
 

@@ -1,8 +1,8 @@
-import { Controller } from './baseController';
-import { Guild } from '../database/guild/model';
+import { Controller } from './BaseController';
+import { Guild } from '../models/guild';
+import { Colour } from '../models/colour';
+import { User } from '../models/user';
 import { Connection, Repository, getConnectionManager } from 'typeorm';
-import { Colour } from '../database/colour/model';
-import { User } from '../database/user/model';
 
 interface GuildCreatePayload {
     id: string;
@@ -15,6 +15,7 @@ interface GuildUpdatePayload {
     users?: User[] | User;
     channel?: string;
     listmessage?: string;
+    helpmessage?: string;
 }
 
 export default
@@ -27,8 +28,8 @@ class GuildController implements Controller<Guild> {
      * Controls guild DB interactions and updates.
      * @memberof GuildController
      */
-    constructor() {
-        this.connection = getConnectionManager().get();
+    constructor(connection: Connection) {
+        this.connection = connection;
         this.guildRepo = this.connection.getRepository(Guild);
     }    
 
@@ -65,7 +66,16 @@ class GuildController implements Controller<Guild> {
      * @returns 
      * @memberof GuildController
      */
-    async read(id: string) {
+    async read(id: string, allRelations?: boolean) {
+        if (allRelations) {
+            const guild = await this.guildRepo.findOneById(id, {
+                alias: 'guild',
+                innerJoinAndSelect: {
+                    colours: 'guild.colours',
+                },
+            });
+            return guild;
+        }
         const guild = await this.guildRepo.findOneById(id);
 
         return guild;
@@ -105,18 +115,16 @@ class GuildController implements Controller<Guild> {
             throw new TypeError('Guild does not exist!');
         }
 
-        const mergedPayload = { ...guild };
-        
-        for (const [key, value] of Object.values(payload)) {
+        for (const [key, value] of Object.entries(payload)) {
             if (Array.isArray(value)) {
                 // merge the original guild value array with the payload array.
-                mergedPayload[key] = [...mergedPayload[key], ...payload[key]];
+                guild[key] = [...guild[key], ...value];
             } else {
-                mergedPayload[key] = payload[key];
+                guild[key] = value;
             }
         }
-
-        return await this.guildRepo.preload(guild);
+        
+        return await this.guildRepo.persist(guild);
     }
 
     /**

@@ -18,7 +18,7 @@ const confirm = (message, type, reason, options = {
         delay: 3000,
     }) => __awaiter(this, void 0, void 0, function* () {
     message.react(statusCodes[type]);
-    if (reason) {
+    if (reason && type === 'failure') {
         const replyMessage = yield message.reply(`**Alert:** ${reason}`);
         if (options.delete) {
             const reply = Array.isArray(replyMessage) ? replyMessage[0] : replyMessage;

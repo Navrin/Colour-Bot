@@ -8,19 +8,20 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const actions_1 = require("./database/colour/actions");
 const typeorm_1 = require("typeorm");
 const simple_discordjs_1 = require("simple-discordjs");
-const model_1 = require("./database/guild/model");
-const model_2 = require("./database/colour/model");
-const actions_2 = require("./database/guild/actions");
-const model_3 = require("./database/user/model");
-const actions_3 = require("./database/user/actions");
-const yaml = require("js-yaml");
 const Discord = require("discord.js");
 const common_tags_1 = require("common-tags");
 const confirmer_1 = require("./confirmer");
+const UserController_1 = require("./controllers/UserController");
+const GuildController_1 = require("./controllers/GuildController");
+const GuildHelper_1 = require("./helpers/GuildHelper");
+const ColourController_1 = require("./controllers/ColourController");
+const UserHelper_1 = require("./helpers/UserHelper");
+const UserColourInteractor_1 = require("./interactions/UserColourInteractor");
+const GuildColourInteractor_1 = require("./interactions/GuildColourInteractor");
 const escapeStringRegexp = require("escape-string-regexp");
+const listTemplate_1 = require("./listTemplate");
 const webshot = require('webshot');
 const createShot = (html, file, settings) => {
     return new Promise((res, rej) => {
@@ -43,9 +44,15 @@ const standardColours = {
     blue: 0x0000FF,
     indigo: 0x4B0082,
     violet: 0x9400D3,
+    white: 0xFFFFFF,
 };
 class Colourizer {
     constructor() {
+        this.connection = typeorm_1.getConnectionManager().get();
+        this.userController = new UserController_1.default(this.connection);
+        this.userHelper = new UserHelper_1.default(this.userController);
+        this.guildController = new GuildController_1.default(this.connection);
+        this.guildHelper = new GuildHelper_1.default(this.connection);
         /************
          * COMMANDS *
          ************/
@@ -58,11 +65,11 @@ class Colourizer {
                     parameters: '{{colour}} {{role}}',
                 },
                 description: {
-                    message: 'Sets a role colour to be registered.\
-If no roles are mentions, perform a search for a role by name,\
-and if more than one role is found, specify role name further.',
-                    example: '{{{prefix}}}setcolour green @role \n\
-                 {{{prefix}}}setcolour green role_name_here',
+                    message: common_tags_1.stripIndents `Sets a role colour to be registered.
+                If no roles are mentions, perform a search for a role by name,
+                and if more than one role is found, specify role name further.`,
+                    example: common_tags_1.stripIndents `{{{prefix}}}setcolour green @role
+                 {{{prefix}}}setcolour green role_name_here`,
                 },
             };
         };
@@ -154,8 +161,8 @@ and if more than one role is found, specify role name further.',
                     names: ['allcolours', 'colours', 'allcolors', 'colors'],
                 },
                 description: {
-                    message: 'Creates a singleton message that keeps a list of all colours,\
-automatically updated',
+                    message: common_tags_1.oneLineTrim `Creates a singleton message that keeps a list of all colours, 
+                                     automatically updated`,
                     example: '{{{prefix}}}colours',
                 },
                 authentication: simple_discordjs_1.RoleTypes.ADMIN,
@@ -237,28 +244,43 @@ automatically updated',
          * @memberof Colourizer
          */
         this.createChannelMessage = (message) => __awaiter(this, void 0, void 0, function* () {
-            const guildRepo = yield this.connection.getRepository(model_1.Guild);
-            const guild = yield guildRepo.findOneById(message.guild.id);
-            if (guild && guild.channel) {
+            const guildEntity = yield this.guildHelper.findOrCreateGuild(message.guild.id);
+            if (guildEntity && guildEntity.channel) {
                 const channel = message
                     .guild
                     .channels
-                    .find('id', guild.channel);
+                    .find('id', guildEntity.channel);
                 if (channel instanceof Discord.TextChannel) {
-                    channel.send(common_tags_1.stripIndents `
+                    if (guildEntity.helpmessage) {
+                        channel.fetchMessage(guildEntity.helpmessage)
+                            .then((message) => {
+                            if (message) {
+                                message.delete();
+                            }
+                        })
+                            .catch((err) => {
+                            this.guildController.update(guildEntity.id, {
+                                helpmessage: undefined,
+                            });
+                        });
+                    }
+                    const helpMessage = yield channel.send(common_tags_1.stripIndents `
                         Request a colour by typing out one of the following colours below. 
 
                         __**Only type just the colour, no messages before or after it.**__
 
                         __Don't try to talk in this channel__
-                        messages are deleted automatically if they don't match a command or colour.
-                    `);
+                        messages are deleted automatically.`);
+                    yield this.guildController.update(guildEntity.id, {
+                        helpmessage: helpMessage.id,
+                    });
+                    confirmer_1.confirm(message, 'success');
                     return true;
                 }
-                confirmer_1.dispatch(message, 'failure', 'Channel not found!');
+                confirmer_1.confirm(message, 'failure', 'Channel not found!');
                 return false;
             }
-            confirmer_1.dispatch(message, 'failure', 'Set a colour channel first!');
+            confirmer_1.confirm(message, 'failure', 'Set a colour channel first!');
             return false;
         });
         /**
@@ -270,7 +292,7 @@ automatically updated',
          */
         this.listColours = (message) => __awaiter(this, void 0, void 0, function* () {
             try {
-                this.updateOrListColours(message);
+                this.updateOrListColours(message, true);
                 return true;
             }
             catch (e) {
@@ -287,41 +309,32 @@ automatically updated',
          * @memberof Colourizer
          */
         this.getColour = (message, options, parameters, client, self, silent = false) => __awaiter(this, void 0, void 0, function* () {
-            const colourRepo = yield this.connection.getRepository(model_2.Colour);
-            const userRepo = yield this.connection.getRepository(model_3.User);
-            const guildRepo = yield this.connection.getRepository(model_1.Guild);
-            const colour = yield colourRepo.createQueryBuilder('colour')
-                .innerJoin('colour.guild.id', 'guild')
-                .where('colour.guild = :guildId', { guildId: message.guild.id })
-                .andWhere('colour.name LIKE :colourName', { colourName: `%${parameters.named.colour}%` })
-                .getOne();
-            const guild = yield guildRepo.findOneById(message.guild.id);
-            if (guild == null) {
-                yield confirmer_1.confirm(message, 'failure', 'Guild Error.');
+            const { author, guild } = message;
+            const guildEntity = yield this.guildHelper.findOrCreateGuild(guild.id);
+            const colourController = yield new ColourController_1.default(this.connection, guildEntity);
+            const colour = yield colourController.find({
+                name: parameters.named.colour,
+            });
+            if (colour === undefined) {
+                confirmer_1.confirm(message, 'failure', 'Colour was not found, check spelling!');
                 return false;
             }
-            if (colour == null) {
-                if (!silent) {
-                    yield confirmer_1.confirm(message, 'failure', common_tags_1.oneLineTrim `Colour was not found. Check your spelling
-                        of the colour, else ask an admin to add the colour.`);
-                }
-                return false;
+            // const userEntity = await this.userHelper.findOrCreateUser(author.id, guildEntity);
+            // const userEntityWithRelations =
+            //     await this.userController.find(userEntity.id, guildEntity.id);
+            const fullGuild = yield this.guildController.read(guild.id, true);
+            if (fullGuild === undefined) {
+                throw new Error('Loading the same guild returned undefined, database corruption?');
             }
-            const userEntitiy = (yield actions_3.findUser(message.author.id, guild, this.connection))
-                || (yield actions_3.createUserIfNone(message.author, guild, this.connection, colour));
-            if (userEntitiy === undefined) {
-                yield confirmer_1.confirm(message, 'failure', 'Error when creating user.');
-                return;
+            const colourInteractor = new UserColourInteractor_1.default(this.connection, message, fullGuild);
+            const response = yield colourInteractor.addColour(colour);
+            if (response.status === UserColourInteractor_1.ColourStatusReturns.FAILURE_UPDATE_LIST) {
+                this.updateOrListColours(message);
             }
-            const user = yield actions_3.findUser(message.author.id, guild, this.connection);
-            if (user == null) {
-                message.channel.send('User is not in schema: ' + user);
-                return false;
-            }
-            return yield this.setColourToUser(colour, this.connection, user, guild, message);
+            confirmer_1.confirm(message, response.type, response.message);
         });
         /**
-         * Sets a colour to the guild schema, only to be used by admins/mods
+         * Sets a colour to the guild schema, only to be used by admins | mods
          * c.setcolour {{name}} {{green}}
          * will add the colour to the schema to be synced into the guild schema.
          *
@@ -333,18 +346,33 @@ automatically updated',
          * @memberof Colourizer
          */
         this.setColour = (message, options, parameters) => __awaiter(this, void 0, void 0, function* () {
-            const guildRepo = yield this.connection.getRepository(model_1.Guild);
-            const colourRepo = yield this.connection.getRepository(model_2.Colour);
-            const roleID = yield this.findRole(message, parameters.named.role);
-            if (!roleID) {
-                yield confirmer_1.confirm(message, 'failure', common_tags_1.oneLineTrim `No usable roles could be found!
-                    Mention a role or redefine your search parameters.`);
-                return false;
+            const { guild } = message;
+            const guildEntity = yield this.guildHelper.findOrCreateGuild(guild.id);
+            const guildInteractor = yield new GuildColourInteractor_1.default(this.connection, message, guildEntity);
+            const roles = yield this.findRole(message, parameters.named.role);
+            if (roles === undefined) {
+                confirmer_1.confirm(message, 'failure', 'No roles found.');
+                return;
             }
-            const guild = (yield guildRepo.findOneById(message.guild.id))
-                || (yield actions_2.createGuildIfNone(message));
-            this.setColourEntity(parameters.named.colour, guild, roleID, message);
-            return true;
+            else if (roles instanceof Discord.Collection && roles.size > 1) {
+                const warning = common_tags_1.stripIndents `
+                Multiple roles found.
+                ${roles
+                    .map(role => `Name -> ${role.name.replace('@', '')}`)
+                    .join('\n')}
+            `;
+                confirmer_1.confirm(message, 'failure', warning, { delete: true, delay: 10000 });
+                return;
+            }
+            const singularRole = (roles instanceof Discord.Collection) ? roles.first() : roles;
+            const result = yield guildInteractor.createOrUpdateColour(singularRole, parameters.named.colour);
+            switch (result.status) {
+                case GuildColourInteractor_1.GuildColourStatus.FAILURE_UPDATE_LIST:
+                case GuildColourInteractor_1.GuildColourStatus.SUCCESS_UPDATE_LIST:
+                    this.updateOrListColours(message);
+                    break;
+            }
+            confirmer_1.confirm(message, result.type, result.message);
         });
         /**
          * Creates a standard set of colours for demonstration and quick use.
@@ -355,34 +383,26 @@ automatically updated',
          * @memberof Colourizer
          */
         this.generateStandardColours = (message) => __awaiter(this, void 0, void 0, function* () {
+            const { guild } = message;
+            const guildEntity = yield this.guildHelper.findOrCreateGuild(guild.id);
+            const guildInteractor = yield new GuildColourInteractor_1.default(this.connection, message, guildEntity);
             for (const [colourName, colourCode] of Object.entries(standardColours)) {
-                const discordGuild = message.guild;
-                const oldRole = yield discordGuild.roles.find('name', `colour-${colourName}`);
+                const oldRole = yield guild.roles.find('name', `colour-${colourName}`);
                 const role = (oldRole)
                     ? oldRole
-                    : yield discordGuild.createRole({
+                    : yield guild.createRole({
                         name: `colour-${colourName}`,
                         color: colourCode,
                     });
                 if (!role) {
                     continue;
                 }
-                const guildRepo = yield this.connection.getRepository(model_1.Guild);
-                const guild = (yield guildRepo.findOneById(discordGuild.id))
-                    || (yield actions_2.createGuildIfNone(message));
-                if (!guild) {
-                    yield confirmer_1.confirm(message, 'failure', common_tags_1.oneLineTrim `Error when setting roles,
-                        guild not part of the current database.`);
-                    break;
-                }
-                try {
-                    this.setColourEntity(`colour-${colourName}`, guild, role.id, message, true, true);
-                }
-                catch (e) {
-                    break;
+                const { type, data } = yield guildInteractor.createOrUpdateColour(role, colourName);
+                if (type === 'failure') {
+                    continue;
                 }
             }
-            yield confirmer_1.confirm(message, 'success');
+            this.updateOrListColours(message);
             return true;
         });
         /**
@@ -395,20 +415,27 @@ automatically updated',
          * @memberof Colourizer
          */
         this.quickCreateColour = (message, options, params) => __awaiter(this, void 0, void 0, function* () {
-            const colour = /(?:#)?[0-9a-f]{6}/gmi.exec(params.named.colourCode);
-            const guildRepo = yield this.connection.getRepository(model_1.Guild);
-            const guild = (yield guildRepo.findOneById(message.guild.id))
-                || (yield actions_2.createGuildIfNone(message));
+            const { colourName, colourCode } = params.named;
+            const colour = /(?:#)?[0-9a-f]{6}/gmi.exec(colourCode);
+            const guildEntity = yield this.guildHelper.findOrCreateGuild(message.guild.id);
+            const guildColourInteractor = yield new GuildColourInteractor_1.default(this.connection, message, guildEntity);
             if (!colour) {
                 yield confirmer_1.confirm(message, 'failure', 'No colour was specified');
                 return false;
             }
-            const colourCode = colour[0];
-            const colourEntity = yield message.guild.createRole({
-                name: params.named.colourName,
-                color: parseInt(colourCode.replace('#', ''), 16),
+            const colourMatch = colour[0];
+            const colourRole = yield message.guild.createRole({
+                name: colourName,
+                color: parseInt(colourMatch.replace('#', ''), 16),
             });
-            this.setColourEntity(params.named.colourName, guild, colourEntity.id, message);
+            const result = yield guildColourInteractor.createOrUpdateColour(colourRole, colourName);
+            switch (result.status) {
+                case GuildColourInteractor_1.GuildColourStatus.FAILURE_UPDATE_LIST:
+                case GuildColourInteractor_1.GuildColourStatus.SUCCESS_UPDATE_LIST:
+                    this.updateOrListColours(message);
+                    break;
+            }
+            confirmer_1.confirm(message, result.type, result.message);
             return true;
         });
         /**
@@ -420,25 +447,24 @@ automatically updated',
          * @memberof Colourizer
          */
         this.deleteColourEntity = (message, ots, params) => __awaiter(this, void 0, void 0, function* () {
-            const colourRepo = yield this.connection.getRepository(model_2.Colour);
-            const guildRepo = yield this.connection.getRepository(model_1.Guild);
-            const colour = yield colourRepo
-                .createQueryBuilder('colour')
-                .innerJoin('colour.guild', 'guild')
-                .where('colour.guild = :guildID', { guildID: message.guild.id })
-                .andWhere('colour.name LIKE :colourName', { colourName: params.named.colourName })
-                .getOne();
-            if (!colour) {
-                confirmer_1.confirm(message, 'failure', 'Colour was not found, check your name with the colourlist.');
-                return false;
+            const guildEntity = yield this.guildHelper.findOrCreateGuild(message.guild.id);
+            const guildColourInteractor = yield new GuildColourInteractor_1.default(this.connection, message, guildEntity);
+            const colourController = yield new ColourController_1.default(this.connection, guildEntity);
+            const colour = yield colourController.find({
+                name: params.named.colourName,
+            });
+            if (colour === undefined) {
+                confirmer_1.confirm(message, 'failure', 'Colour was not found.');
+                return;
             }
-            const role = yield message.guild.roles.find('id', colour.roleID);
-            if (role) {
-                role.delete();
+            const result = yield guildColourInteractor.removeColour(colour);
+            switch (result.status) {
+                case GuildColourInteractor_1.GuildColourStatus.FAILURE_UPDATE_LIST:
+                case GuildColourInteractor_1.GuildColourStatus.SUCCESS_UPDATE_LIST:
+                    this.updateOrListColours(message);
+                    break;
             }
-            yield colourRepo.remove(colour);
-            this.updateOrListColours(message);
-            confirmer_1.confirm(message, 'success');
+            confirmer_1.confirm(message, result.type, result.message);
             return true;
         });
         /**
@@ -456,10 +482,9 @@ automatically updated',
         this.initiateNewServer = (message, opts, params, client, self) => __awaiter(this, void 0, void 0, function* () {
             const author = message.author;
             const prefix = self.defaultPrefix.str;
-            const msgVec = yield message.channel.send(common_tags_1.stripIndents `Welcome to Colour Bot!
+            const msg = yield message.channel.send(common_tags_1.stripIndents `Welcome to Colour Bot!
             It is recommended to do this command in a mod channel.
             Type \`y\` or \`n\` to confirm continue`);
-            const msg = Array.isArray(msgVec) ? msgVec[0] : msgVec;
             const replyMessage = yield this.getNextReply(message, author);
             if (replyMessage.content.toLowerCase().startsWith('n')
                 || !replyMessage.content.toLowerCase().startsWith('y')) {
@@ -469,19 +494,19 @@ automatically updated',
                 return;
             }
             replyMessage.delete();
-            msg.edit(`Step 1: set a colour channel with using ${prefix}setchannel #channel`);
+            msg.edit(`Step 1: set a colour channel with using \`${prefix}setchannel #channel\``);
             const nextReply = yield this.getNextReply(message, author);
             const chan = nextReply.mentions.channels.first();
-            if (!nextReply.content.includes('setchannel')) {
+            if (!nextReply.content.toLowerCase().includes('setchannel')) {
                 confirmer_1.confirm(message, 'failure', 'Failed to follow instructions!');
                 msg.delete();
                 nextReply.delete();
                 return;
             }
-            msg.edit(`Step 2: add your mod group in with ${prefix}addrole admin @admins`);
+            msg.edit(`Step 2: add your mod group in with \`${prefix}addrole admin @admins\``);
             const adminReply = yield this.getNextReply(message, author);
             if (adminReply.mentions.roles.size <= 0
-                && !adminReply.content.includes('addrole')) {
+                && !adminReply.content.toLowerCase().includes('addrole admin')) {
                 confirmer_1.confirm(message, 'failure', 'Failed to follow instructions!');
                 msg.delete();
                 nextReply.delete();
@@ -490,35 +515,30 @@ automatically updated',
             adminReply.delete(1000);
             yield msg.edit(`Would you like to generate a set of standard rainbow colours?  (\`y\` or \`n\`)`);
             const generateReply = yield this.getNextReply(message, author);
-            if (generateReply.content.includes('y')) {
-                const genVec = yield message.channel.send('Generating...');
-                const genMsg = Array.isArray(genVec) ? genVec[0] : genVec;
+            if (generateReply.content.toLowerCase().includes('y')) {
+                const generateMessage = yield message.channel.send('Generating...');
                 /* Chill typescript, its fine, we only need a message object. */
-                this.generateStandardColours(genMsg);
+                yield this.generateStandardColours(generateMessage);
             }
             generateReply.delete();
             yield msg.edit(`Would you like to make help message (highly recommended!) (\`y\` or \`n\`)`);
             const helpReply = yield this.getNextReply(message, author);
-            if (helpReply.content.includes('y')) {
-                const helpVec = yield chan.send('Getting Help?');
-                const helpMsg = Array.isArray(helpVec) ? helpVec[0] : helpVec;
+            if (helpReply.content.toLowerCase().includes('y')) {
+                const helpMsg = yield chan.send('Getting Help?');
                 this.createChannelMessage(helpMsg);
-                helpMsg.delete()
-                    .catch(e => null);
             }
             helpReply.delete();
             yield msg.edit(`Would you like to create a colour list image? (\`y\` or \`n\`)`);
             const listReply = yield this.getNextReply(message, author);
-            if (listReply.content.includes('y')) {
-                const listVec = yield chan.send('Generating List!');
-                const listMsg = Array.isArray(listVec) ? listVec[0] : listVec;
+            if (listReply.content.toLowerCase().includes('y')) {
+                const listMsg = yield chan.send('Generating List!');
                 /* Again, take a chill pill ts */
-                yield this.listColours(listMsg);
+                this.updateOrListColours(listMsg, true);
             }
             listReply
                 .delete()
                 .catch(e => null);
-            msg.edit(common_tags_1.stripIndents `Alright, initiation procedures completed!
+            yield msg.edit(common_tags_1.stripIndents `Alright, initiation procedures completed!
             
             To add existing roles to bot, use 
             \`${prefix}setcolour colour_name role_name\`
@@ -532,11 +552,13 @@ automatically updated',
 
             It is recommended to pin this message for reference for other admins.
             `);
-            const prompt = yield message.channel.send(common_tags_1.stripIndents 
+            const embed = new Discord.RichEmbed()
+                .setDescription(common_tags_1.stripIndents 
             // tslint:disable-next-line:max-line-length
             `__It is also recommended you run ${prefix}cycle if you already have colour roles set up__.
-            An admin can do this for you, if you wish.`);
-            prompt.delete(7500);
+                An admin can do this for you, if you wish.`).setThumbnail(client.user.avatarURL);
+            const prompt = yield message.channel.send({ embed });
+            prompt.delete(15000);
             confirmer_1.confirm(message, 'success')
                 .catch(e => null);
             return true;
@@ -553,25 +575,12 @@ automatically updated',
         this.cycleExistingRoles = (message) => __awaiter(this, void 0, void 0, function* () {
             const roles = message.guild.roles;
             const { author } = message;
-            // const testSpecial = (role: Discord.Role) => {
-            //     return (
-            //         role.hasPermission('ADMINISTRATOR')   ||
-            //         role.hasPermission('KICK_MEMBERS')    ||
-            //         role.hasPermission('BAN_MEMBERS')     ||
-            //         role.hasPermission('MANAGE_CHANNELS') ||
-            //         role.hasPermission('MANAGE_GUILD')    ||
-            //         role.hasPermission('MANAGE_MESSAGES') ||
-            //         role.hasPermission('')
-            //     )    
-            // }
-            const guildRepo = yield this.connection.getRepository(model_1.Guild);
-            const guild = (yield guildRepo.findOneById(message.guild.id))
-                || (yield actions_2.createGuildIfNone(message));
+            const guildEntity = yield this.guildHelper.findOrCreateGuild(message.guild.id);
             const chan = message
                 .guild
                 .channels
-                .find('id', guild.channel);
-            if (guild.channel === undefined || chan === undefined) {
+                .find('id', guildEntity.channel);
+            if (guildEntity.channel === undefined || chan === undefined) {
                 confirmer_1.confirm(message, 'failure', 'Set a colour channel before running this command!', { delete: true, delay: 3000 });
                 return;
             }
@@ -593,9 +602,13 @@ automatically updated',
                 return;
             }
             reply.delete();
+            const guildColourInteractor = yield new GuildColourInteractor_1.default(this.connection, message, guildEntity);
+            const colourController = new ColourController_1.default(this.connection, guildEntity);
+            const allColours = yield colourController.index();
+            const coloursTable = allColours.map(colour => [colour.roleID, colour]);
             for (const [id, role] of roles) {
-                if (role.managed) {
-                    msg.edit('Skipping managed role...');
+                if (role.managed || role.name === '@everyone') {
+                    msg.edit({ embed: { description: 'Skipping special role...' } });
                     sleep(1000);
                     continue;
                 }
@@ -610,27 +623,30 @@ automatically updated',
                     Would you like to add this role? 
                     (\`y\` or \`n\` or \`cancel\` or \`finish\`)`)
                     .setDescription('The colour for this role is the highlight on the side.')
-                    .addField('Warnings', (baselinePerms.length < permissions.length
-                    || role.name === '@everyone')
+                    .addField('Warnings', (baselinePerms.length !== permissions.length)
                     ? '❌ Warning. This role may have special permissions!'
                     : '☑️ This role looks fine!');
                 msg.edit({ embed });
                 const reply = yield this.getNextReply(message, author);
-                // TODO: fix for lower case and also adjust list.
-                if (reply.content.toLowerCase().toLowerCase().startsWith('n')) {
+                const contents = reply.content.toLowerCase();
+                if (contents.startsWith('n')) {
                     reply.delete();
                     continue;
                 }
-                if (reply.content.toLowerCase().startsWith('cancel')) {
+                if (contents.startsWith('cancel')) {
                     confirmer_1.confirm(message, 'failure', 'Function was canceled!');
                     msg.delete();
                     reply.delete();
                     return;
                 }
-                if (reply.content.toLowerCase().startsWith('finish')) {
+                if (contents.startsWith('finish')) {
                     reply.delete();
-                    msg.delete();
                     break;
+                }
+                if (!contents.startsWith('y')) {
+                    confirmer_1.confirm(message, 'failure', 'Bad input given!');
+                    reply.delete();
+                    return;
                 }
                 reply.delete();
                 const setName = new Discord.RichEmbed()
@@ -644,179 +660,95 @@ automatically updated',
                     name.delete();
                     continue;
                 }
-                this.setColourEntity(name.content.toLowerCase().startsWith('=default')
+                const roleName = (name.content.toLowerCase().startsWith('=default'))
                     ? role.name
-                    : name.content, guild, role.id, name, true, true);
+                    : name.content;
+                guildColourInteractor.createOrUpdateColour(role, roleName);
                 name.delete();
             }
             const generator = yield chan.send('Generating colours...!');
-            this.updateOrListColours(generator);
-            msg.edit(`Wohoo, that's all the roles!`);
+            this.updateOrListColours(generator, true);
+            yield msg.edit({ embed: { description: `Wohoo, that's all the roles!` } });
             msg.delete(2000);
             confirmer_1.confirm(message, 'success');
             return true;
         });
-        this.connection = typeorm_1.getConnectionManager().get();
     }
     /**
      * Determines if the colour list should be created,
      * or update the existing one (delete and repost list)
      *
      * @private
-     * @param {Discord.Message} message
      * @returns
      * @memberof Colourizer
      */
-    updateOrListColours(message) {
+    updateOrListColours(message, destroyMessage) {
         return __awaiter(this, void 0, void 0, function* () {
-            const guildRepo = yield this.connection.getRepository(model_1.Guild);
-            const guild = (yield guildRepo.findOneById(message.guild.id)) ||
-                (yield actions_2.createGuildIfNone(message));
-            if (guild.listmessage) {
-                if (!guild.channel) {
-                    confirmer_1.confirm(message, 'failure', 'use setchannel to create a colour channel.');
-                    return false;
-                }
-                const channel = message
-                    .guild
-                    .channels
-                    .find('id', guild.channel);
-                if (!channel || channel instanceof Discord.VoiceChannel) {
-                    confirmer_1.confirm(message, 'failure', 'use setchannel to create a colour channel.');
-                    return false;
-                }
+            const errorHelper = (error, message, destroyMessage) => {
+                (destroyMessage)
+                    ? confirmer_1.confirm(message, 'failure', error, { delete: true, delay: 5000 })
+                    : message.channel.send(error).then((msg) => msg.delete());
+                return;
+            };
+            const guildEntity = yield this.guildHelper.findOrCreateGuild(message.guild.id);
+            if (guildEntity.channel === undefined) {
+                const error = 'Attempted to create a colour list, but no colour channel is set!';
+                return errorHelper(error, message, destroyMessage);
+            }
+            const channel = message
+                .guild
+                .channels
+                .get(guildEntity.channel);
+            if (channel === undefined) {
+                const error = 'Current colour channel could not be found! (deleted?)';
+                return errorHelper(error, message, destroyMessage);
+            }
+            if (guildEntity.listmessage) {
                 try {
-                    const msg = yield channel.fetchMessage(guild.listmessage);
-                    this.syncColourList(msg);
-                    confirmer_1.confirm(message, 'success');
-                    return true;
+                    const previous = yield channel.fetchMessage(guildEntity.listmessage);
+                    if (previous) {
+                        previous.delete();
+                        this.guildController.update(guildEntity.id, {
+                            listmessage: undefined,
+                        });
+                    }
                 }
                 catch (e) {
-                    !this.singletonInProgress && this.createNewColourSingleton(message, guild);
-                    return true;
+                    // message no real;
+                    this.guildController.update(guildEntity.id, {
+                        listmessage: undefined,
+                    });
                 }
             }
-            !this.singletonInProgress && this.createNewColourSingleton(message, guild);
-            return true;
+            else {
+                message.channel
+                    .send('Creating a new colour list!')
+                    .then((msg) => msg.delete(5000));
+            }
+            yield this.syncColourList(channel, guildEntity);
+            if (destroyMessage) {
+                confirmer_1.confirm(message, 'success');
+            }
         });
     }
-    /**
-     * Creates a new list in the colour channel if none exists prior.
-     *
-     *
-     * @private
-     * @param {Discord.Message} message
-     * @param {Guild} guild
-     * @memberof Colourizer
-     */
-    createNewColourSingleton(message, guild) {
+    syncColourList(channel, guild) {
         return __awaiter(this, void 0, void 0, function* () {
-            this.singletonInProgress = true;
-            const msg = yield message.channel.send(
-            // tslint:disable:max-line-length
-            common_tags_1.stripIndents `The following message will be edited to a list of colours for this guild.
-            These colours will automatically update on colour change.
-            __Please do not delete this message__
-            As images cannot be edited, do not pin the message, but the colour bot should maintain a clean (enough) channel history to keep the message at the top.`);
-            // tslint:enable:max-line-length
-            const singleMsg = Array.isArray(msg) ? msg[0] : msg;
-            const guildRepo = yield this.connection.getRepository(model_1.Guild);
-            guild.listmessage = singleMsg.id;
-            guildRepo.persist(guild);
-            yield sleep(7000);
-            yield this.syncColourList(singleMsg);
-            confirmer_1.confirm(message, 'success');
-            this.singletonInProgress = false;
-        });
-    }
-    /**
-     * Updates the colour list already posted in the server.
-     * This method was originally supposed to edit an embed,
-     * however, the discord API does not support image editing,
-     * therefore delete the image and post a new one.
-     * Hacky? maybe.
-     *
-     * @private
-     * @param {Discord.Message} message
-     * @memberof Colourizer
-     */
-    syncColourList(message) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const colourRepo = yield this.connection.getRepository(model_2.Colour);
-            const guildRepo = yield this.connection.getRepository(model_1.Guild);
-            const guild = (yield guildRepo.findOneById(message.guild.id))
-                || (yield actions_2.createGuildIfNone(message));
-            const results = yield colourRepo
-                .createQueryBuilder('colour')
-                .innerJoin('colour.guild', 'guild')
-                .where('colour.guild = :guildID', { guildID: message.guild.id })
-                .getMany();
-            const dom = `<html style="margin: 0">
-            <div id="list" style="
-                font-size: 60px; 
-                margin-top: 0;
-                margin: 0;
-                font-family: sans-serif;
-                width: 100vw; 
-                height: 100vh">
-               ${results.map((item) => {
-                const guildRole = message.guild.roles.find('id', item.roleID);
-                if (!guildRole) {
-                    return false;
+            const colourController = yield new ColourController_1.default(this.connection, guild);
+            const results = yield colourController.index();
+            const colours = results
+                .map((colour) => {
+                const roleColour = channel.guild.roles.get(colour.roleID);
+                if (roleColour === undefined) {
+                    return;
                 }
-                const colour = guildRole.hexColor;
-                return `
-                    <div style="width: 50%; display: flex; float: left;"> 
-                        <div style="
-                            width: 80%; 
-                            float: left;
-                            text-align: center;
-                            background-color: white;
-                            color: ${colour}"> 
-                            <span style="padding-left: 15px;">
-                                ${item.name.replace('colour-', '')} 
-                            </span>
-                        </div>
-                        <div style="
-                            width: 20%; 
-                            background-color: ${colour}; 
-                            color: #${(0xFFFFFF ^ guildRole.color).toString(16)};
-                            float: right;"> 
-                            <span style="width: 80%;">
-                                ${colour.replace('#', '')}
-                            </span>
-                        </div> 
-                    </div>
-                    <div style="
-                        width: 50%; 
-                        display: flex; 
-                        float: right;
-                        background-color: #36393e"> 
-                        <div style="
-                            width: 80%; 
-                            text-align: center;
-                            float: left;
-                            color: ${colour}"> 
-                            ${item.name.replace('colour-', '')} 
-                        </div>
-                        <div style="
-                            width: 20%; 
-                            background-color: ${colour}; 
-                            color: #${(0xFFFFFF ^ guildRole.color).toString(16)};
-                            float: right;"> 
-                            <span style="width: 80%;">
-                                ${colour.replace('#', '')}
-                            </span>
-                        </div> 
-                    </div>`;
-            }).join('\n')}
-            </div>
-        </html>`;
-            const yamler = yaml.dump(results.map((colourItem) => {
                 return {
-                    name: colourItem.name.replace('colour-', ''),
+                    name: colour.name,
+                    hexColour: roleColour.hexColor,
                 };
-            }));
+            });
+            // dunno, typescript doesn't want to accept my filter.
+            const coloursFiltered = colours.filter(value => value !== undefined);
+            const dom = listTemplate_1.default(coloursFiltered);
             const img = 'list.png';
             yield createShot(dom, img, {
                 siteType: 'html',
@@ -829,122 +761,11 @@ automatically updated',
                     width: 'all',
                 },
             });
-            const newMsgResolve = yield message.channel.send({ file: img });
-            const newMessage = (Array.isArray(newMsgResolve)) ? newMsgResolve[0] : newMsgResolve;
-            guild.listmessage = newMessage.id;
-            guildRepo.persist(guild);
-            message.delete()
-                .catch((e) => {
-                // message was probably deleted by something else.
+            const newMsg = yield channel.send({ file: img });
+            this.guildController.update(guild.id, {
+                listmessage: newMsg.id,
             });
-        });
-    }
-    /**
-     * Persist a colour to the user entity for the guild.
-     * @param newColour
-     * @param connection
-     * @param user
-     * @param guild
-     * @param message
-     */
-    setColourToUser(newColour, connection, user, guild, message) {
-        return __awaiter(this, void 0, void 0, function* () {
-            try {
-                const userRepo = yield connection.getRepository(model_3.User);
-                const colourRepo = yield connection.getRepository(model_2.Colour);
-                const guildRepo = yield connection.getRepository(model_1.Guild);
-                const colourList = yield colourRepo.find();
-                if (user.colours[0] !== undefined) {
-                    const oldColour = message.guild.roles.get(user.colours[0].roleID);
-                    if (oldColour === undefined) {
-                        confirmer_1.confirm(message, 'failure', 'Error setting colour!');
-                        return false;
-                    }
-                    yield message.guild.member(message.author).removeRole(oldColour);
-                }
-                const userMember = message.guild.member(message.author.id);
-                const possibleColours = colourList
-                    .map(colour => userMember.roles.find('name', colour.name))
-                    .filter(id => id);
-                yield userMember.removeRoles(possibleColours);
-                const updatedUser = yield userRepo.persist(user);
-                user.colours.push(newColour);
-                yield colourRepo.persist(newColour);
-                yield userRepo.persist(user);
-                yield guildRepo.persist(guild);
-                const nextColour = message.guild.roles.get(newColour.roleID.toString());
-                if (nextColour === undefined) {
-                    confirmer_1.confirm(message, 'failure', 'Error getting colour!');
-                    return false;
-                }
-                try {
-                    yield message.guild.member(message.author).addRole(nextColour);
-                    confirmer_1.confirm(message, 'success', undefined, { delay: 1000, delete: true });
-                }
-                catch (e) {
-                    confirmer_1.confirm(message, 'failure', `Error setting colour: ${e}`, { delay: 3000, delete: true });
-                }
-                return true;
-            }
-            catch (e) {
-                confirmer_1.confirm(message, 'failure', `error: ${e}`);
-                return false;
-            }
-        });
-    }
-    /**
-     * Adds the colour to the guild database.
-     *
-     * @private
-     * @param {string} colourName
-     * @param {Guild} guild
-     * @param {string} roleID
-     * @param {Discord.Message} message
-     * @param {boolean} [silent=false]
-     * @returns
-     * @memberof Colourizer
-     */
-    setColourEntity(colourName, guild, roleID, message, silent = false, noListUpdate = false) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const colourRepo = yield this.connection.getRepository(model_2.Colour);
-            const guildRepo = yield this.connection.getRepository(model_1.Guild);
-            const colour = yield colourRepo
-                .createQueryBuilder('colour')
-                .innerJoin('colour.guild', 'guild')
-                .where('colour.guild = :guildID', { guildID: guild.id })
-                .andWhere('colour.name LIKE :colourName', { colourName })
-                .getOne();
-            if (colour === undefined) {
-                const newColour = yield actions_1.createNewColour(message, colourName, roleID);
-                if (!newColour) {
-                    confirmer_1.confirm(message, 'failure', 'Failure setting colour!');
-                    throw new Error('Colour failure!');
-                }
-                if (!silent) {
-                    confirmer_1.confirm(message, 'success');
-                }
-                if (!noListUpdate) {
-                    this.updateOrListColours(message);
-                }
-                return true;
-            }
-            try {
-                colour.guild = guild;
-                colour.roleID = roleID;
-                yield colourRepo.persist(colour);
-                yield guildRepo.persist(guild);
-                if (!silent) {
-                    confirmer_1.confirm(message, 'success');
-                }
-                if (!noListUpdate) {
-                    this.updateOrListColours(message);
-                }
-                return true;
-            }
-            catch (e) {
-                confirmer_1.confirm(message, 'failure', `Error when updating colour: ${e.toString()}`);
-                throw new Error('Colour failure!');
-            }
+            return true;
         });
     }
     /**
@@ -959,21 +780,12 @@ automatically updated',
      */
     findRole(message, role) {
         return __awaiter(this, void 0, void 0, function* () {
-            const roleKey = message.mentions.roles.firstKey();
+            const roleKey = message.mentions.roles.first();
             if (roleKey) {
                 return roleKey;
             }
             const search = message.guild.roles.filter(roleObject => roleObject.name.includes(role));
-            if (search.size > 1) {
-                yield confirmer_1.confirm(message, 'failure', common_tags_1.stripIndents `Multiple results found for the search ${role}!
-                Expected one role, found: 
-                    ${search
-                    .map(roleOjb => `Rolename: ${roleOjb.name.replace('@', '')}`)
-                    .join('\n')}
-                `, { delay: 10000, delete: true });
-                return false;
-            }
-            return search.firstKey();
+            return search;
         });
     }
     /**
