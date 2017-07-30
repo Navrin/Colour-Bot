@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+const colourRequest_1 = require("./colourRequest");
 const typeorm_1 = require("typeorm");
 const colour_1 = require("./colour");
 const guild_1 = require("./guild");
@@ -10,6 +11,7 @@ const connectionOptions = {
         colour_1.Colour,
         guild_1.Guild,
         user_1.User,
+        colourRequest_1.ColourRequest,
     ],
     autoSchemaSync: true,
     autoMigrationsRun: true,

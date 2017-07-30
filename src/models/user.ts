@@ -9,9 +9,11 @@ import {
     ManyToMany,
     JoinTable,
     Index,
+    OneToMany,
 } from 'typeorm';
 
 import 'reflect-metadata';
+import { ColourRequest } from './colourRequest';
 
 @Entity()
 @Index('user_id_index', (user: User) => [user.id])
@@ -23,4 +25,7 @@ export class User {
     @ManyToMany(type => Guild, guild => guild.users)
     @JoinTable()
     guilds: Guild[] = [];
+
+    @OneToMany(type => ColourRequest, request => request.user)
+    requests: ColourRequest[];
 }

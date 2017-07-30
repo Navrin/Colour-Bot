@@ -55,8 +55,8 @@ class UserController implements Controller<User> {
                 id,
                 alias: 'user',
                 innerJoinAndSelect: {
-                    colours: 'user.colours',
-                    guilds: 'user.guilds',
+                    // guilds: 'user.guilds',
+                    requests: 'user.requests',
                 },
             });
         }
@@ -64,11 +64,11 @@ class UserController implements Controller<User> {
         const user = await this.userRepo
             .createQueryBuilder('user')
             .where('user.id = :id', { id })
-            .innerJoinAndSelect('user.guilds', 'guild')
-            .andWhere('guild.id = :guild', { guild }) 
-            .innerJoinAndSelect('guild.colours', 'colour')
-            .leftJoin('user.colours', 'colours', 'colours = colour')
+            // .leftJoinAndSelect('user.guilds', 'guilds', 'guilds.id = :guild')
+            .innerJoinAndSelect('user.requests', 'requests', 'requests.guild = :guild')
+            .addParameters({ guild })
             .getOne();
+        
 
         return user;
     }
@@ -98,6 +98,7 @@ class UserController implements Controller<User> {
         
         user.id = payload.id,
         user.guilds = (payload.guild) ? [payload.guild] : [];
+        user.requests = [];
 
         return await this.userRepo.persist(user);
     }

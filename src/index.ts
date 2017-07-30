@@ -3,19 +3,20 @@ import { getConnectionManager, getConnection } from 'typeorm';
 import connection from './models/__init';
 import Commands, { RateLimiter, Auth } from 'simple-discordjs';
 import * as Discord from 'discord.js';
-import Colourizer from './colourizer';
+import Colourizer from './Colourizer';
 const settings: {
     token?: string,
     superuser?: string,
     prefix?: string,
 } = require('../botConfig.json');
-import { getInviteLinkDescriber } from './utils';
+import { getInviteLinkDescriber } from './utils/commands';
 import { confirm } from './confirmer';
 import ChannelLocker from './channelLocker';
 import GuildHelper from './helpers/GuildHelper';
 import { stripIndents } from 'common-tags';
 
 import * as Bluebird from 'bluebird';
+import Settings, { Types } from './Settings';
 
 Bluebird.config({
     longStackTraces: true,
@@ -74,6 +75,19 @@ client.on('ready', () => {
             const colourizer = new Colourizer();
             const locker = new ChannelLocker(connection);
 
+            const settings = new Settings(connection, {
+                colourDelta: {
+                    type: Types.num,
+                    aliases: ['delta', 'limit', 'near'],
+                    description: 'Defines how "close" two colours can\'t be.',
+                },
+                autoAcceptRequests: {
+                    type: Types.bool,
+                    aliases: ['auto', 'automatic', 'autoaccept'],
+                    description: 'Defines if a request will automatically be accepted',
+                },
+            });
+
             new Commands(prefix, client, {
                 deleteCommandMessage: false,
                 deleteMessageDelay: 2000,
@@ -99,6 +113,11 @@ client.on('ready', () => {
                 .defineCommand(colourizer.getListCommand())
                 .defineCommand(colourizer.getCycleExistingCommand())
                 .defineCommand(colourizer.getMessageCommand())
+                .defineCommand(colourizer.requests.getCycleRequests())
+                .defineCommand(colourizer.requests.getRequestColour())
+                .defineCommand(colourizer.requests.getRemoveRequest())
+                .defineCommand(settings.getSetCommand())
+                .defineCommand(settings.getListSettingsCommand())
                 .generateHelp()
                 .listen(async (message) => {
                     if (message.channel.type !== 'dm'

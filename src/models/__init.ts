@@ -1,3 +1,4 @@
+import { ColourRequest } from './colourRequest';
 import { getConnectionManager, ConnectionOptions } from 'typeorm';
 import { Colour } from './colour';
 import { Guild } from './guild';
@@ -9,6 +10,7 @@ const connectionOptions: ConnectionOptions = {
         Colour,
         Guild,
         User,
+        ColourRequest,
     ],
     autoSchemaSync: true,
     autoMigrationsRun: true,

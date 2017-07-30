@@ -45,18 +45,16 @@ class UserController {
                     id,
                     alias: 'user',
                     innerJoinAndSelect: {
-                        colours: 'user.colours',
-                        guilds: 'user.guilds',
+                        // guilds: 'user.guilds',
+                        requests: 'user.requests',
                     },
                 });
             }
             const user = yield this.userRepo
                 .createQueryBuilder('user')
                 .where('user.id = :id', { id })
-                .innerJoinAndSelect('user.guilds', 'guild')
-                .andWhere('guild.id = :guild', { guild })
-                .innerJoinAndSelect('guild.colours', 'colour')
-                .leftJoin('user.colours', 'colours', 'colours = colour')
+                .innerJoinAndSelect('user.requests', 'requests', 'requests.guild = :guild')
+                .addParameters({ guild })
                 .getOne();
             return user;
         });
@@ -86,6 +84,7 @@ class UserController {
             const user = new user_1.User();
             user.id = payload.id,
                 user.guilds = (payload.guild) ? [payload.guild] : [];
+            user.requests = [];
             return yield this.userRepo.persist(user);
         });
     }

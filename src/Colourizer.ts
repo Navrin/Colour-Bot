@@ -1,12 +1,11 @@
 import * as path from 'path';
 import * as fs from 'mz/fs';
-import { getConnectionManager, Connection } from 'typeorm';
-import { CommandFunction, CommandDefinition, RoleTypes } from 'simple-discordjs';
 import * as yaml from 'js-yaml';
 import * as Discord from 'discord.js';
+import { getConnectionManager, Connection } from 'typeorm';
+import { CommandFunction, CommandDefinition, RoleTypes } from 'simple-discordjs';
 import { stripIndents, oneLineTrim } from 'common-tags';
 import { dispatch, confirm } from './confirmer';
-import { JSDOM } from 'jsdom';
 import UserController from './controllers/UserController';
 import GuildController from './controllers/GuildController';
 import GuildHelper from './helpers/GuildHelper';
@@ -14,24 +13,13 @@ import ColourController from './controllers/ColourController';
 import UserHelper from './helpers/UserHelper';
 import UserColourInteractor, { ColourStatusReturns } from './interactions/UserColourInteractor';
 import GuildColourInteractor, { GuildColourStatus } from './interactions/GuildColourInteractor';
-import escapeStringRegexp = require('escape-string-regexp');
-import listTemplate, { ListColour } from './listTemplate';
 import { Guild } from './models/guild';
 import { Colour } from './models/colour';
-
-const webshot = require('webshot');
-const createShot = (html: string, file: string, settings: any) => {
-    return new Promise((res, rej) => {
-        webshot(html, file, settings, (err: any) => {
-            if (err) {
-                rej(err);
-            }
-
-            res();
-        });
-    });
-};
-
+import { createShot } from './utils/webshot';
+import { JSDOM } from 'jsdom';
+import listTemplate, { ListColour } from './listTemplate';
+import { RequestCommands } from './RequestCommands';
+import escapeStringRegexp = require('escape-string-regexp');
 const sleep = (delay: number) => new Promise((res, rej) => {
     setTimeout(() => res(), delay);
 });
@@ -60,6 +48,7 @@ export default class Colourizer {
     userHelper = new UserHelper(this.userController);
     guildController = new GuildController(this.connection);
     guildHelper = new GuildHelper(this.connection);
+    requests = new RequestCommands(this.connection, this);
 
     /************
      * COMMANDS *
@@ -286,7 +275,13 @@ export default class Colourizer {
      * @type {CommandFunction}
      * @memberof Colourizer
      */
-    private createChannelMessage: CommandFunction = async (message) => {
+    private createChannelMessage: CommandFunction = async (
+        message,
+        opts,
+        params,
+        client,
+        commander,
+    ) => {
         const guildEntity = await this.guildHelper.findOrCreateGuild(message.guild.id);
 
         if (guildEntity && guildEntity.channel) {
@@ -317,6 +312,14 @@ export default class Colourizer {
                         Request a colour by typing out one of the following colours below. 
 
                         __**Only type just the colour, no messages before or after it.**__
+
+                        If you would like to request a custom colour,
+                        type \`${commander.defaultPrefix.str}request colour\`
+                        
+                        example: \`${commander.defaultPrefix.str}request ff0000\`.
+
+                        Depending on the server settings this colour will automatically be added,
+                        or subject to admin approval.
 
                         __Don't try to talk in this channel__
                         messages are deleted automatically.`);
@@ -362,7 +365,7 @@ export default class Colourizer {
      * @returns 
      * @memberof Colourizer
      */
-    private async updateOrListColours(message: Discord.Message, destroyMessage?: boolean) {
+    public async updateOrListColours(message: Discord.Message, destroyMessage?: boolean) {
         const errorHelper = (error: string, message: Discord.Message, destroyMessage?: boolean) => {
             (destroyMessage)
                 ? confirm(message, 'failure', error, { delete: true, delay: 5000 })
@@ -844,6 +847,14 @@ export default class Colourizer {
             To quickly add a new colour to the bot, use
             \`${prefix}quickcolour colour_name colour_hex_code\`
 
+            
+            To change the settings, use 
+            \`${prefix}set {setting} {value}\`.
+            
+            List all the settings with
+            \`${prefix}settings\`. 
+            It is recommended to tweak these settings if you wish for automatic colour requests.
+            
             It is recommended to pin this message for reference for other admins.
             `,
         );

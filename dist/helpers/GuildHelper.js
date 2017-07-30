@@ -26,12 +26,24 @@ class GuildHelper {
             const repo = yield typeorm_1.getConnectionManager()
                 .get()
                 .getRepository(guild_1.Guild);
-            const maybeGuild = yield repo.findOneById(id);
+            const maybeGuild = yield repo.findOneById(id, {
+                alias: 'guild',
+                innerJoinAndSelect: {
+                    colours: 'guild.colours',
+                },
+            });
             if (maybeGuild) {
+                if (maybeGuild.settings === undefined) {
+                    return yield this.controller.update(maybeGuild.id, {
+                        settings: guild_1.defaultGuildSettings,
+                    });
+                }
                 return maybeGuild;
             }
             const guild = new guild_1.Guild();
             guild.id = id;
+            guild.settings = guild_1.defaultGuildSettings;
+            guild.colours = [];
             const newGuild = yield repo.persist(guild);
             return newGuild;
         });

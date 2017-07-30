@@ -13,6 +13,11 @@ const user_1 = require("./user");
 const colour_1 = require("./colour");
 const typeorm_1 = require("typeorm");
 require("reflect-metadata");
+const colourRequest_1 = require("./colourRequest");
+exports.defaultGuildSettings = {
+    colourDelta: 2,
+    autoAcceptRequests: false,
+};
 let Guild = class Guild {
     constructor() {
         this.users = [];
@@ -30,6 +35,13 @@ __decorate([
     }),
     __metadata("design:type", Array)
 ], Guild.prototype, "colours", void 0);
+__decorate([
+    typeorm_1.OneToMany(type => colourRequest_1.ColourRequest, request => request.guild, {
+        cascadeInsert: true,
+        cascadeUpdate: true,
+    }),
+    __metadata("design:type", Array)
+], Guild.prototype, "requests", void 0);
 __decorate([
     typeorm_1.ManyToMany(type => user_1.User, user => user.guilds, {
         cascadeInsert: true,
@@ -50,6 +62,10 @@ __decorate([
     typeorm_1.Column('string', { nullable: true }),
     __metadata("design:type", String)
 ], Guild.prototype, "helpmessage", void 0);
+__decorate([
+    typeorm_1.Column('jsonb', { nullable: true }),
+    __metadata("design:type", Object)
+], Guild.prototype, "settings", void 0);
 Guild = __decorate([
     typeorm_1.Entity(),
     typeorm_1.Index('guild_id_index', (guild) => [guild.id])

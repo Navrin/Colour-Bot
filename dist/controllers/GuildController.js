@@ -80,6 +80,8 @@ class GuildController {
             guild.id = payload.id;
             guild.colours = [];
             guild.users = [];
+            guild.requests = [];
+            guild.settings = guild_1.defaultGuildSettings;
             const guildEntity = yield this.guildRepo.persist(guild);
             return guildEntity;
         });
@@ -95,7 +97,12 @@ class GuildController {
      */
     update(id, payload) {
         return __awaiter(this, void 0, void 0, function* () {
-            const guild = yield this.guildRepo.findOneById(id);
+            const guild = yield this.guildRepo.findOneById(id, {
+                alias: 'guild',
+                innerJoinAndSelect: {
+                    colours: 'guild.colours',
+                },
+            });
             if (!guild) {
                 throw new TypeError('Guild does not exist!');
             }

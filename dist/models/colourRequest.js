@@ -9,31 +9,35 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const guild_1 = require("./guild");
 const typeorm_1 = require("typeorm");
+const guild_1 = require("./guild");
+const user_1 = require("./user");
 require("reflect-metadata");
-const colourRequest_1 = require("./colourRequest");
-let User = class User {
-    constructor() {
-        this.guilds = [];
-    }
+let ColourRequest = class ColourRequest {
 };
 __decorate([
-    typeorm_1.PrimaryColumn(),
+    typeorm_1.PrimaryGeneratedColumn(),
     typeorm_1.Index(),
+    __metadata("design:type", Number)
+], ColourRequest.prototype, "id", void 0);
+__decorate([
+    typeorm_1.Column(),
     __metadata("design:type", String)
-], User.prototype, "id", void 0);
+], ColourRequest.prototype, "colour", void 0);
 __decorate([
-    typeorm_1.ManyToMany(type => guild_1.Guild, guild => guild.users),
-    typeorm_1.JoinTable(),
-    __metadata("design:type", Array)
-], User.prototype, "guilds", void 0);
+    typeorm_1.ManyToOne(type => guild_1.Guild, {
+        cascadeAll: true,
+    }),
+    __metadata("design:type", guild_1.Guild)
+], ColourRequest.prototype, "guild", void 0);
 __decorate([
-    typeorm_1.OneToMany(type => colourRequest_1.ColourRequest, request => request.user),
-    __metadata("design:type", Array)
-], User.prototype, "requests", void 0);
-User = __decorate([
+    typeorm_1.ManyToOne(type => user_1.User, {
+        cascadeAll: true,
+    }),
+    __metadata("design:type", user_1.User)
+], ColourRequest.prototype, "user", void 0);
+ColourRequest = __decorate([
     typeorm_1.Entity(),
-    typeorm_1.Index('user_id_index', (user) => [user.id])
-], User);
-exports.User = User;
+    typeorm_1.Index('request_id_index', (request) => [request.id])
+], ColourRequest);
+exports.ColourRequest = ColourRequest;

@@ -65,7 +65,6 @@ class GuildColourInteractor {
                 name,
                 roleID: role.id,
             });
-
         return {
             status: GuildColourStatus.SUCCESS_UPDATE_LIST,
             message: `Colour successfully ${(existingColour) ? 'updated' : 'created'}!`,

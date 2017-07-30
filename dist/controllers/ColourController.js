@@ -10,6 +10,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 const colour_1 = require("../models/colour");
 const guild_1 = require("../models/guild");
+const GuildController_1 = require("./GuildController");
 class ColourController {
     /**
      * Creates an instance of ColourController.
@@ -22,6 +23,7 @@ class ColourController {
         this.guildRepo = this.connection.getRepository(guild_1.Guild);
         this.colourRepo = this.connection.getRepository(colour_1.Colour);
         this.guild = guild;
+        this.guildController = new GuildController_1.default(this.connection);
     }
     /**
      * List all colours for the current guild
@@ -92,8 +94,10 @@ class ColourController {
             colour.name = payload.name;
             colour.guild = this.guild;
             const colourEntity = yield this.colourRepo.persist(colour);
-            const updatedGuildEntity = yield this.guildRepo.persist(this.guild);
-            this.guild = updatedGuildEntity;
+            const updatedGuild = yield this.guildController.update(this.guild.id, {
+                colours: [colour],
+            });
+            this.guild = updatedGuild;
             return colourEntity;
         });
     }

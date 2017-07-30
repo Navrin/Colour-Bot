@@ -2,6 +2,7 @@ import { Controller } from './BaseController';
 import { Colour } from '../models/colour';
 import { Guild } from '../models/guild';
 import { getConnectionManager, Connection, Repository } from 'typeorm';
+import GuildController from './GuildController';
 
 interface ColourUpdateOptions {
     roleID?: string;
@@ -15,6 +16,7 @@ interface ColourCreateOptions {
 
 export default
 class ColourController implements Controller<Colour> {
+    guildController: GuildController;
     guild: Guild;
     connection: Connection;
     guildRepo: Repository<Guild>;
@@ -31,6 +33,7 @@ class ColourController implements Controller<Colour> {
         this.guildRepo = this.connection.getRepository(Guild);
         this.colourRepo = this.connection.getRepository(Colour);
         this.guild = guild;
+        this.guildController = new GuildController(this.connection);
     }
     
     /**
@@ -103,8 +106,11 @@ class ColourController implements Controller<Colour> {
         colour.guild = this.guild;
         
         const colourEntity = await this.colourRepo.persist(colour);
-        const updatedGuildEntity = await this.guildRepo.persist(this.guild);
-        this.guild = updatedGuildEntity;
+        const updatedGuild = await this.guildController.update(this.guild.id, {
+            colours: [colour],
+        });
+        
+        this.guild = updatedGuild;
 
         return colourEntity;
     }

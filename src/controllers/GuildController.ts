@@ -1,5 +1,5 @@
 import { Controller } from './BaseController';
-import { Guild } from '../models/guild';
+import { Guild, GuildSettings, defaultGuildSettings } from '../models/guild';
 import { Colour } from '../models/colour';
 import { User } from '../models/user';
 import { Connection, Repository, getConnectionManager } from 'typeorm';
@@ -11,11 +11,12 @@ interface GuildCreatePayload {
 interface GuildUpdatePayload {
     [key: string]: any;
     id?: string;
-    colours?: Colour[] | Colour;
-    users?: User[] | User;
+    colours?: Colour[];
+    users?: User[];
     channel?: string;
     listmessage?: string;
     helpmessage?: string;
+    settings?: GuildSettings;
 }
 
 export default
@@ -93,6 +94,8 @@ class GuildController implements Controller<Guild> {
         guild.id = payload.id;
         guild.colours = [];
         guild.users = [];
+        guild.requests = [];
+        guild.settings = defaultGuildSettings;
 
         const guildEntity = await this.guildRepo.persist(guild);
         return guildEntity;
@@ -109,7 +112,12 @@ class GuildController implements Controller<Guild> {
      */
     async update(id: string, payload: GuildUpdatePayload) {
         const guild: ({ [key: string]: any; } & Guild) | undefined
-            = await this.guildRepo.findOneById(id);
+            = await this.guildRepo.findOneById(id, {
+                alias: 'guild',
+                innerJoinAndSelect: {
+                    colours: 'guild.colours',
+                },
+            });
 
         if (!guild) {
             throw new TypeError('Guild does not exist!');

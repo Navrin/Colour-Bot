@@ -31,7 +31,6 @@ class UserHelper {
             id,
             guild,
         });
-
-        return newUser;
+       return newUser;
     }
 }

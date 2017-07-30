@@ -12,14 +12,15 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const __init_1 = require("./models/__init");
 const simple_discordjs_1 = require("simple-discordjs");
 const Discord = require("discord.js");
-const colourizer_1 = require("./colourizer");
+const Colourizer_1 = require("./Colourizer");
 const settings = require('../botConfig.json');
-const utils_1 = require("./utils");
+const commands_1 = require("./utils/commands");
 const confirmer_1 = require("./confirmer");
 const channelLocker_1 = require("./channelLocker");
 const GuildHelper_1 = require("./helpers/GuildHelper");
 const common_tags_1 = require("common-tags");
 const Bluebird = require("bluebird");
+const Settings_1 = require("./Settings");
 Bluebird.config({
     longStackTraces: true,
 });
@@ -63,8 +64,20 @@ client.on('ready', () => {
         for (const [id, guild] of client.guilds) {
             yield guildHelper.findOrCreateGuild(id);
         }
-        const colourizer = new colourizer_1.default();
+        const colourizer = new Colourizer_1.default();
         const locker = new channelLocker_1.default(connection);
+        const settings = new Settings_1.default(connection, {
+            colourDelta: {
+                type: Settings_1.Types.num,
+                aliases: ['delta', 'limit', 'near'],
+                description: 'Defines how "close" two colours can\'t be.',
+            },
+            autoAcceptRequests: {
+                type: Settings_1.Types.bool,
+                aliases: ['auto', 'automatic', 'autoaccept'],
+                description: 'Defines if a request will automatically be accepted',
+            },
+        });
         new simple_discordjs_1.default(prefix, client, {
             deleteCommandMessage: false,
             deleteMessageDelay: 2000,
@@ -74,7 +87,7 @@ client.on('ready', () => {
             .use(auth.authenticate)
             .use(locker.lock)
             .use(limiter.protect)
-            .defineCommand(utils_1.getInviteLinkDescriber())
+            .defineCommand(commands_1.getInviteLinkDescriber())
             .defineCommand(auth.getCommand())
             .defineCommand(locker.getSetChannelLock())
             .defineCommand(colourizer.guardChannel(prefix))
@@ -88,6 +101,11 @@ client.on('ready', () => {
             .defineCommand(colourizer.getListCommand())
             .defineCommand(colourizer.getCycleExistingCommand())
             .defineCommand(colourizer.getMessageCommand())
+            .defineCommand(colourizer.requests.getCycleRequests())
+            .defineCommand(colourizer.requests.getRequestColour())
+            .defineCommand(colourizer.requests.getRemoveRequest())
+            .defineCommand(settings.getSetCommand())
+            .defineCommand(settings.getListSettingsCommand())
             .generateHelp()
             .listen((message) => __awaiter(this, void 0, void 0, function* () {
             if (message.channel.type !== 'dm'
