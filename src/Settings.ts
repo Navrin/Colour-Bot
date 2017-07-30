@@ -92,11 +92,18 @@ class Settings {
         for (const [setting, descriptor] of Object.entries(this.settings)) {
             if (descriptor.aliases.includes(params.named.setting.toLowerCase())
                 || setting.toLowerCase() === params.named.setting.toLowerCase()) {
-                const result = await this.set(message, setting, params.named.value);
-                if (result) {
-                    confirm(message, 'success');
-                    return;
-                }
+                    const validated = this.validate(params.named.value, descriptor.type);
+                    
+                    if (!validated) {
+                        confirm(message, 'failure', 'Bad value given!');
+                        return;
+                    }
+                    
+                    const result = await this.set(message, setting, params.named.value);
+                    if (result) {
+                        confirm(message, 'success');
+                        return;
+                    }
             }
         }
         confirm(
@@ -104,6 +111,21 @@ class Settings {
             'failure', 
             'No setting was found! Consider using the listsettings command.',
         );
+    }
+
+    validate(value: string, type: Types | undefined) {
+        const lowered = value.toLowerCase();
+
+        switch (type) {
+            case Types.bool:
+                return /(false|true)/i.test(lowered);
+            case Types.num:
+                return !(/[\D]+/i.test(lowered));
+            case Types.str:
+                return !(/[\d]+/i.test(lowered));
+            default: 
+                return true;
+        }       
     }
 
     async set(message: Discord.Message, setting: string, value: string): Promise<boolean> {
@@ -119,14 +141,19 @@ class Settings {
         const guildEntity = await this.guildHelper.findOrCreateGuild(message.guild.id);
         const settings = guildEntity.settings || defaultGuildSettings;
 
-        const updatedGuild = await this.guildControler.update(guildEntity.id, {
-            settings: {
-                ...settings,
-                [setting]: converted,
-            },
-        });
-
-        return true;
+        try {
+            const updatedGuild = await this.guildControler.update(guildEntity.id, {
+                settings: {
+                    ...settings,
+                    [setting]: converted,
+                },
+            });
+    
+            return true;
+        } catch (e) {
+            // people dont know how to set stuff
+            return false;
+        }
     }
 
     convertValue(value: string, type: Types | undefined) {

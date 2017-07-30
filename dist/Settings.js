@@ -62,6 +62,11 @@ class Settings {
             for (const [setting, descriptor] of Object.entries(this.settings)) {
                 if (descriptor.aliases.includes(params.named.setting.toLowerCase())
                     || setting.toLowerCase() === params.named.setting.toLowerCase()) {
+                    const validated = this.validate(params.named.value, descriptor.type);
+                    if (!validated) {
+                        confirmer_1.confirm(message, 'failure', 'Bad value given!');
+                        return;
+                    }
                     const result = yield this.set(message, setting, params.named.value);
                     if (result) {
                         confirmer_1.confirm(message, 'success');
@@ -76,6 +81,19 @@ class Settings {
         this.guildHelper = new GuildHelper_1.default(this.connection);
         this.guildControler = new GuildController_1.default(this.connection);
     }
+    validate(value, type) {
+        const lowered = value.toLowerCase();
+        switch (type) {
+            case Types.bool:
+                return /(false|true)/i.test(lowered);
+            case Types.num:
+                return !(/[\D]+/i.test(lowered));
+            case Types.str:
+                return !(/[\d]+/i.test(lowered));
+            default:
+                return true;
+        }
+    }
     set(message, setting, value) {
         return __awaiter(this, void 0, void 0, function* () {
             const type = this.settings[setting].type;
@@ -86,10 +104,16 @@ class Settings {
             const converted = this.convertValue(value, this.settings[setting].type);
             const guildEntity = yield this.guildHelper.findOrCreateGuild(message.guild.id);
             const settings = guildEntity.settings || guild_1.defaultGuildSettings;
-            const updatedGuild = yield this.guildControler.update(guildEntity.id, {
-                settings: Object.assign({}, settings, { [setting]: converted }),
-            });
-            return true;
+            try {
+                const updatedGuild = yield this.guildControler.update(guildEntity.id, {
+                    settings: Object.assign({}, settings, { [setting]: converted }),
+                });
+                return true;
+            }
+            catch (e) {
+                // people dont know how to set stuff
+                return false;
+            }
         });
     }
     convertValue(value, type) {
