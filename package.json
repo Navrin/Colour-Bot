@@ -26,6 +26,7 @@
     "dom-to-image": "^2.5.2",
     "escape-string-regexp": "^1.0.5",
     "express": "^4.15.3",
+    "hex-rgb": "^1.0.0",
     "ip": "^1.1.5",
     "js-yaml": "^3.8.4",
     "jsdom": "^11.0.0",

@@ -1,5 +1,18 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+const _toRGB = require('hex-rgb');
+const hexToRGB = (hex) => {
+    const [r, g, b] = _toRGB(hex);
+    return {
+        r,
+        g,
+        b,
+    };
+};
+const getContrastColour = ({ r, g, b, }) => {
+    const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+    return (yiq >= 128) ? 'black' : 'white';
+};
 exports.default = (colours) => (`<html style="margin: 0">
     <div id="list" style="
         font-size: 60px; 
@@ -24,7 +37,7 @@ exports.default = (colours) => (`<html style="margin: 0">
                 <div style="
                     width: 20%; 
                     background-color: ${hexColour}; 
-                    color: #${(0xFFFFFF ^ parseInt(hexColour, 16)).toString(16)};
+                    color: ${getContrastColour(hexToRGB(hexColour))};
                     float: right;"> 
                     <span style="width: 80%;">
                         ${hexColour.replace('#', '')}
@@ -46,7 +59,7 @@ exports.default = (colours) => (`<html style="margin: 0">
                 <div style="
                     width: 20%; 
                     background-color: ${hexColour}; 
-                    color: #${(0xFFFFFF ^ parseInt(hexColour, 16)).toString(16)};
+                    color: ${getContrastColour(hexToRGB(hexColour))};
                     float: right;"> 
                     <span style="width: 80%;">
                         ${hexColour.replace('#', '')}

@@ -1,8 +1,32 @@
+const _toRGB = require('hex-rgb');
+
+const hexToRGB = (hex: string) => {
+    const [r, g, b] = _toRGB(hex);
+    return {
+        r,
+        g,
+        b,
+    };
+};
+
 export
 interface ListColour {
     name: string;
     hexColour: string;
 }
+
+const getContrastColour = ({
+    r,
+    g,
+    b,   
+}: {
+    r: number,
+    g: number,
+    b: number,
+}) => {
+    const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+    return (yiq >= 128) ? 'black' : 'white';
+};
 
 export default (colours: ListColour[]) => (
     `<html style="margin: 0">
@@ -29,7 +53,7 @@ export default (colours: ListColour[]) => (
                 <div style="
                     width: 20%; 
                     background-color: ${hexColour}; 
-                    color: #${(0xFFFFFF ^ parseInt(hexColour, 16)).toString(16)};
+                    color: ${getContrastColour(hexToRGB(hexColour))};
                     float: right;"> 
                     <span style="width: 80%;">
                         ${hexColour.replace('#', '')}
@@ -51,7 +75,7 @@ export default (colours: ListColour[]) => (
                 <div style="
                     width: 20%; 
                     background-color: ${hexColour}; 
-                    color: #${(0xFFFFFF ^ parseInt(hexColour, 16)).toString(16)};
+                    color: ${getContrastColour(hexToRGB(hexColour))};
                     float: right;"> 
                     <span style="width: 80%;">
                         ${hexColour.replace('#', '')}
