@@ -12,6 +12,8 @@ import GuildRequestInteractor, { RequestColourStatus } from './interactions/Guil
 import GuildColourInteractor, { GuildColourStatus } from './interactions/GuildColourInteractor';
 import * as Discord from 'discord.js';
 import { stripIndents, oneLineTrim } from 'common-tags';
+import UserColourInteractor from './interactions/UserColourInteractor';
+import { Colour } from './models/colour';
 const sleep = (delay: number) => new Promise((res, rej) => {
     setTimeout(() => res(), delay);
 });
@@ -125,7 +127,10 @@ export
             && guildEntity.settings 
             && guildEntity.settings.autoAcceptRequests) {
             const name = colourName(params.named.colour).title.toLowerCase();
-            this.parseRequest(message, <ColourRequest>request.data, name);
+            const reponse = await this.parseRequest(message, <ColourRequest>request.data, name);
+            
+            const interactor = new UserColourInteractor(this.connection, message, guildEntity);
+            await interactor.addColour(<Colour>reponse.data);
         }
 
         confirm(message, request.type, request.message);

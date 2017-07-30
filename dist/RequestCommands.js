@@ -19,6 +19,7 @@ const GuildRequestInteractor_1 = require("./interactions/GuildRequestInteractor"
 const GuildColourInteractor_1 = require("./interactions/GuildColourInteractor");
 const Discord = require("discord.js");
 const common_tags_1 = require("common-tags");
+const UserColourInteractor_1 = require("./interactions/UserColourInteractor");
 const sleep = (delay) => new Promise((res, rej) => {
     setTimeout(() => res(), delay);
 });
@@ -88,7 +89,9 @@ class RequestCommands {
                 && guildEntity.settings
                 && guildEntity.settings.autoAcceptRequests) {
                 const name = colourName(params.named.colour).title.toLowerCase();
-                this.parseRequest(message, request.data, name);
+                const reponse = yield this.parseRequest(message, request.data, name);
+                const interactor = new UserColourInteractor_1.default(this.connection, message, guildEntity);
+                yield interactor.addColour(reponse.data);
             }
             confirmer_1.confirm(message, request.type, request.message);
         });
