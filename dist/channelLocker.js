@@ -12,6 +12,7 @@ const simple_discordjs_1 = require("simple-discordjs");
 const confirmer_1 = require("./confirmer");
 const GuildHelper_1 = require("./helpers/GuildHelper");
 const GuildController_1 = require("./controllers/GuildController");
+const guild_1 = require("./models/guild");
 class ChannelLocker {
     constructor(connection) {
         this.getSetChannelLock = () => {
@@ -58,9 +59,9 @@ class ChannelLocker {
             }
             if (message.mentions.channels.first()) {
                 const channels = message.mentions.channels;
-                this.guildController.update(guild.id, {
-                    channel: channels.first().id,
-                });
+                guild.channel = channels.first().id;
+                yield this.connection.getRepository(guild_1.Guild)
+                    .persist(guild);
             }
             else {
                 const channel = message.guild.channels.find('name', parameters.named.channel);

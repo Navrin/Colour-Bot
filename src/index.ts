@@ -67,6 +67,7 @@ client.on('ready', () => {
                     (use \`${prefix}help\` to see all of the commands.)
                 `);
             });
+    
             for (const [id, guild] of client.guilds) {
                 await guildHelper.findOrCreateGuild(id);
             }

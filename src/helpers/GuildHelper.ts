@@ -7,7 +7,10 @@ import { Guild, defaultGuildSettings } from '../models/guild';
 export default
 class GuildHelper {
     controller: GuildController;
+    connection: Connection;
+
     constructor(connection: Connection) {
+        this.connection = connection;
         this.controller = new GuildController(connection);
     }
     
@@ -18,10 +21,7 @@ class GuildHelper {
      * @memberof GuildHelper
      */
     async findOrCreateGuild(id: string) {
-        const repo = 
-            await getConnectionManager()
-                .get()
-                .getRepository(Guild);
+        const repo = this.connection.getRepository(Guild);
         
         const maybeGuild = 
             await repo.findOneById(id, {

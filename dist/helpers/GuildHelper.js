@@ -8,11 +8,11 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const typeorm_1 = require("typeorm");
 const GuildController_1 = require("../controllers/GuildController");
 const guild_1 = require("../models/guild");
 class GuildHelper {
     constructor(connection) {
+        this.connection = connection;
         this.controller = new GuildController_1.default(connection);
     }
     /**
@@ -23,9 +23,7 @@ class GuildHelper {
      */
     findOrCreateGuild(id) {
         return __awaiter(this, void 0, void 0, function* () {
-            const repo = yield typeorm_1.getConnectionManager()
-                .get()
-                .getRepository(guild_1.Guild);
+            const repo = this.connection.getRepository(guild_1.Guild);
             const maybeGuild = yield repo.findOneById(id, {
                 alias: 'guild',
                 innerJoinAndSelect: {

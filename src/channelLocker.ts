@@ -9,6 +9,7 @@ import { Connection, getConnectionManager } from 'typeorm';
 import { confirm } from './confirmer';
 import GuildHelper from './helpers/GuildHelper';
 import GuildController from './controllers/GuildController';
+import { Guild } from './models/guild';
 
 export default
 class ChannelLocker {
@@ -85,10 +86,11 @@ class ChannelLocker {
 
         if (message.mentions.channels.first()) {
             const channels = message.mentions.channels;
+            guild.channel = channels.first().id;
+            
+            await this.connection.getRepository(Guild)
+                .persist(guild);
 
-            this.guildController.update(guild.id, {
-                channel: channels.first().id,
-            });
         } else {
             const channel = message.guild.channels.find('name', parameters.named.channel);
             if (!channel) {
