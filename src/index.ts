@@ -119,6 +119,7 @@ client.on('ready', () => {
                 .defineCommand(colourizer.requests.getRemoveRequest())
                 .defineCommand(settings.getSetCommand())
                 .defineCommand(settings.getListSettingsCommand())
+                .defineCommand(colourizer.getNewsCommand())
                 .generateHelp()
                 .listen(async (message) => {
                     if (message.channel.type !== 'dm'

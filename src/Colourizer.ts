@@ -89,6 +89,26 @@ export default class Colourizer {
         };
     }
 
+    public getNewsCommand: () => CommandDefinition = () => {
+        return {
+            command: {
+                action: (msg) => 
+                    msg.channel.send(`
+Wowie some news:
+
+This bot is currently being rewritten for a v2.0 release, in a completely different language (Rust).
+The code is open sourced as usual and can be accessed at: https://github.com/Navrin/colour-bot-v2/
+
+Feel free to raise any issues for features that you think should be added into the bot and any complaints you had with the old version, but keep it constructive.
+Thank :fox:                    
+`).then(_ => true),
+                names: ['news'],
+            },
+            authentication: RoleTypes.SUPERUSER,
+
+        }
+    }
+
     /**
      * A quick hack to allow for pre-fix less colour commands.
      * instead of c.getcolour green
